@@ -1,5 +1,7 @@
 # File and Folder Status Icons
 
+📖 **[Full documentation](https://danrfletcher.github.io/obsidian-file-folder-status-icons/)**
+
 Traffic-light style status icons for files and folders in Obsidian's file
 tree — think ClickUp's status pills, applied to your vault structure.
 

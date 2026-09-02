@@ -1,0 +1,56 @@
+site_name: File and Folder Status Icons
+site_description: ClickUp-style status pills for files and folders in Obsidian's file tree — custom statuses and colors, per-folder defaults, and persistent group-by-status sorting.
+site_url: https://danrfletcher.github.io/obsidian-file-folder-status-icons/
+repo_url: https://github.com/danrfletcher/obsidian-file-folder-status-icons
+repo_name: danrfletcher/obsidian-file-folder-status-icons
+edit_uri: edit/main/docs/docs/
+markdown_extensions:
+  - abbr
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist
+  - tables
+  - toc:
+      permalink: true
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.indexes
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+nav:
+  - Overview: 'index.md'
+  - Getting Started:
+      - Installation: 'getting-started/installation.md'
+      - Your First Status Set: 'getting-started/first-status-set.md'
+  - Status Sets and Folders:
+      - Status Sets and Colors: 'reference/status-sets.md'
+      - Assigning Folders and Defaults: 'reference/folders.md'
+      - Sorting and Grouping: 'reference/sorting.md'
+  - Settings Reference: 'settings.md'
+  - Examples: 'examples.md'
+  - FAQ and Troubleshooting: 'faq.md'
+  - Changelog: 'changelog.md'
+plugins:
+  - search

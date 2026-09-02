@@ -5,3 +5,5 @@ main.js
 data.json
 .vscode/
 dist/
+docs/site/
+docs/.cache/
