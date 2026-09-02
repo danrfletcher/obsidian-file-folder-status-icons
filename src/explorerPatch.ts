@@ -32,7 +32,7 @@ export class ExplorerPatch {
 		this.observer?.disconnect();
 		this.observer = null;
 		if (this.rafHandle !== null) {
-			cancelAnimationFrame(this.rafHandle);
+			window.cancelAnimationFrame(this.rafHandle);
 			this.rafHandle = null;
 		}
 		document.querySelectorAll(`.${DOT_CLASS}`).forEach((el) => el.remove());
@@ -165,7 +165,7 @@ export class ExplorerPatch {
 	private queueContainer(container: HTMLElement): void {
 		this.dirtyContainers.add(container);
 		if (this.rafHandle !== null) return;
-		this.rafHandle = requestAnimationFrame(() => {
+		this.rafHandle = window.requestAnimationFrame(() => {
 			this.rafHandle = null;
 			const containers = Array.from(this.dirtyContainers);
 			this.dirtyContainers.clear();
@@ -179,7 +179,7 @@ export class ExplorerPatch {
 		if (folderPath === null) return;
 
 		const rows = Array.from(container.children).filter(
-			(el): el is HTMLElement => el instanceof HTMLElement && (el.hasClass("nav-file") || el.hasClass("nav-folder")),
+			(el): el is HTMLElement => el.instanceOf(HTMLElement) && (el.hasClass("nav-file") || el.hasClass("nav-folder")),
 		);
 
 		const ranked: { el: HTMLElement; path: string; rank: number; name: string }[] = [];
@@ -242,7 +242,7 @@ export class ExplorerPatch {
 				this.onDotClick(dot!, raw === "/" ? ROOT_PATH : raw);
 			});
 		}
-		dot.style.backgroundColor = display.status.color;
+		dot.setCssStyles({ backgroundColor: display.status.color });
 		dot.setAttribute("aria-label", display.status.label);
 		dot.setAttribute("title", display.status.label);
 	}
@@ -282,13 +282,15 @@ function anchorFromEvent(evt: MouseEvent | KeyboardEvent): HTMLElement {
 	// Menu callbacks don't give us a stable DOM node to anchor a popup to,
 	// so drop an invisible 0x0 element at the click point and clean it up
 	// once the popup's own outside-click handler removes it from view.
+	// evt.win/evt.doc (not the global window/document) so this still lands in
+	// the right window if the menu was opened from a popped-out file explorer.
 	// A keyboard-activated menu item has no pointer coordinates, so fall
 	// back to the viewport center rather than reading MouseEvent-only fields.
-	const point = evt instanceof MouseEvent ? { x: evt.clientX, y: evt.clientY } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-	const anchor = document.body.createDiv({ cls: "ffsi-menu-anchor" });
-	anchor.style.position = "fixed";
-	anchor.style.left = `${point.x}px`;
-	anchor.style.top = `${point.y}px`;
-	setTimeout(() => anchor.remove(), 10000);
+	const point = evt.instanceOf(MouseEvent)
+		? { x: evt.clientX, y: evt.clientY }
+		: { x: evt.win.innerWidth / 2, y: evt.win.innerHeight / 2 };
+	const anchor = evt.doc.body.createDiv({ cls: "ffsi-menu-anchor" });
+	anchor.setCssStyles({ position: "fixed", left: `${point.x}px`, top: `${point.y}px` });
+	evt.win.setTimeout(() => anchor.remove(), 10000);
 	return anchor;
 }
