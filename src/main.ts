@@ -1,4 +1,4 @@
-import { Plugin, TAbstractFile } from "obsidian";
+import { Plugin, TAbstractFile, TFolder } from "obsidian";
 import { DataStore } from "./dataStore";
 import { ExplorerPatch } from "./explorerPatch";
 import { FFSISettingTab } from "./settingsTab";
@@ -22,7 +22,16 @@ export default class FileFolderStatusIconsPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.vault.on("rename", (file: TAbstractFile, oldPath: string) => {
+				// A folder that was only ever inheriting its status set (no config
+				// of its own) needs that inherited config snapshotted *before* the
+				// rename rewrites paths, and re-attached to its new path afterwards
+				// — otherwise moving it out from under its enabled ancestor would
+				// silently drop its statuses instead of carrying them along.
+				const inherited = file instanceof TFolder
+					? this.store.getInheritedConfigForOwnlessFolder(oldPath)
+					: null;
 				this.store.handleRename(oldPath, file.path);
+				if (inherited) this.store.materializeInheritedConfig(file.path, inherited);
 				this.explorerPatch.refreshAll();
 			}),
 		);

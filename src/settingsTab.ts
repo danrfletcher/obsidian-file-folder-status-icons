@@ -3,6 +3,8 @@ import type FileFolderStatusIconsPlugin from "./main";
 import { DataStore } from "./dataStore";
 import { ROOT_PATH } from "./pathUtils";
 import { normalizeHexColor } from "./colorUtils";
+import { ChoiceItem, openChoicePopup, openColorPickerPopup } from "./statusPopup";
+import { attachFolderPathAutocomplete } from "./pathAutocomplete";
 
 export class FFSISettingTab extends PluginSettingTab {
 	constructor(app: App, private plugin: FileFolderStatusIconsPlugin, private store: DataStore) {
@@ -20,6 +22,7 @@ export class FFSISettingTab extends PluginSettingTab {
 		});
 
 		this.renderStatusSets(containerEl);
+		this.renderColorPalette(containerEl);
 		this.renderFolderAssignments(containerEl);
 	}
 
@@ -48,19 +51,44 @@ export class FFSISettingTab extends PluginSettingTab {
 
 			const list = wrapper.createDiv({ cls: "ffsi-status-list" });
 			set.statuses.forEach((status, idx) => {
+				const isDefault = status.id === set.defaultStatusId;
 				const row = new Setting(list).setClass("ffsi-status-row");
-				row.addColorPicker((cp) =>
-					cp.setValue(normalizeHexColor(status.color)).onChange((value) => {
-						this.store.updateStatus(set.id, status.id, { color: value });
-						this.plugin.explorerPatch.refreshAll();
-					}),
-				);
+
+				const swatch = row.controlEl.createDiv({ cls: "ffsi-swatch ffsi-status-swatch" });
+				swatch.setCssStyles({ backgroundColor: normalizeHexColor(status.color) });
+				swatch.setAttribute("role", "button");
+				swatch.setAttribute("aria-label", "Change color");
+				swatch.addEventListener("click", () => {
+					openColorPickerPopup({
+						anchor: swatch,
+						palette: this.store.getColorPalette(),
+						currentColor: normalizeHexColor(status.color),
+						onPick: (hex) => {
+							this.store.updateStatus(set.id, status.id, { color: hex });
+							swatch.setCssStyles({ backgroundColor: hex });
+							this.plugin.explorerPatch.refreshAll();
+						},
+						onSaveToPalette: (hex) => {
+							this.store.addPaletteColor(hex);
+							new Notice(`Saved ${hex} to the color palette.`);
+						},
+					});
+				});
+
 				row.addText((text) =>
 					text.setValue(status.label).onChange((value) => {
 						this.store.updateStatus(set.id, status.id, { label: value || status.label });
 						this.plugin.explorerPatch.refreshAll();
 					}),
 				);
+
+				if (isDefault) {
+					row.controlEl.createSpan({ cls: "ffsi-default-badge", text: "Default status" });
+				}
+				if (status.isCompleted) {
+					row.controlEl.createSpan({ cls: "ffsi-completed-badge", text: "Completed" });
+				}
+
 				row.addExtraButton((btn) =>
 					btn
 						.setIcon("arrow-up")
@@ -87,6 +115,30 @@ export class FFSISettingTab extends PluginSettingTab {
 							this.display();
 						}),
 				);
+				row.addExtraButton((btn) => {
+					btn.setIcon("more-vertical").setTooltip("More actions");
+					btn.onClick(() => {
+						const items: ChoiceItem[] = [];
+						if (!isDefault) items.push({ id: "make-default", label: "Make default" });
+						items.push({
+							id: "toggle-completed",
+							label: status.isCompleted ? "Unmark as completed status" : "Mark as completed status",
+						});
+						openChoicePopup({
+							anchor: btn.extraSettingsEl,
+							items,
+							onSelect: (item) => {
+								if (item.id === "make-default") {
+									this.store.setDefaultStatus(set.id, status.id);
+								} else if (item.id === "toggle-completed") {
+									this.store.setStatusCompleted(set.id, status.id, !status.isCompleted);
+								}
+								this.plugin.explorerPatch.refreshAll();
+								this.display();
+							},
+						});
+					});
+				});
 				row.addExtraButton((btn) =>
 					btn.setIcon("trash").setTooltip("Remove status").onClick(() => {
 						this.store.removeStatus(set.id, status.id);
@@ -113,6 +165,40 @@ export class FFSISettingTab extends PluginSettingTab {
 					this.display();
 				}),
 		);
+	}
+
+	// ---------- Color palette ----------
+
+	private renderColorPalette(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName("Color palette").setHeading();
+		containerEl.createEl("p", {
+			text: "Swatches offered when picking a status color, in addition to a fully custom color.",
+			cls: "setting-item-description",
+		});
+
+		const grid = containerEl.createDiv({ cls: "ffsi-palette-grid" });
+		for (const hex of this.store.getColorPalette()) {
+			const item = grid.createDiv({ cls: "ffsi-palette-item" });
+			const swatch = item.createDiv({ cls: "ffsi-swatch ffsi-palette-swatch" });
+			swatch.setCssStyles({ backgroundColor: hex });
+			swatch.setAttribute("title", hex);
+			const removeBtn = item.createSpan({ cls: "ffsi-palette-remove", text: "×" });
+			removeBtn.setAttribute("role", "button");
+			removeBtn.setAttribute("aria-label", `Remove ${hex} from palette`);
+			removeBtn.addEventListener("click", () => {
+				this.store.removePaletteColor(hex);
+				this.display();
+			});
+		}
+
+		const addWrapper = containerEl.createDiv({ cls: "ffsi-palette-add" });
+		const colorInput = addWrapper.createEl("input", { type: "color" });
+		colorInput.value = "#888888";
+		const addBtn = addWrapper.createEl("button", { text: "Add color to palette" });
+		addBtn.addEventListener("click", () => {
+			this.store.addPaletteColor(colorInput.value);
+			this.display();
+		});
 	}
 
 	// ---------- Folder assignments ----------
@@ -145,12 +231,24 @@ export class FFSISettingTab extends PluginSettingTab {
 				});
 			}
 
+			setting.controlEl.createSpan({ cls: "ffsi-toggle-label", text: "Inherit to subfolders" });
 			setting.addToggle((toggle) =>
 				toggle
-					.setTooltip("Inherit to subfolders without their own assignment")
+					.setTooltip("Subfolders with no assignment of their own use this folder's status set")
 					.setValue(cfg.inheritToChildren)
 					.onChange((value) => {
 						this.store.updateFolderConfig(cfg.path, { inheritToChildren: value });
+						this.plugin.explorerPatch.refreshAll();
+					}),
+			);
+
+			setting.controlEl.createSpan({ cls: "ffsi-toggle-label", text: "Hide completed" });
+			setting.addToggle((toggle) =>
+				toggle
+					.setTooltip("Hide items whose status is marked completed from the tree")
+					.setValue(!!cfg.hideCompleted)
+					.onChange((value) => {
+						this.store.updateFolderConfig(cfg.path, { hideCompleted: value });
 						this.plugin.explorerPatch.refreshAll();
 					}),
 			);
@@ -176,6 +274,13 @@ export class FFSISettingTab extends PluginSettingTab {
 		setting.addText((text) => {
 			text.setPlaceholder("path/to/folder (blank = vault root)");
 			text.onChange((value) => (selectedPath = value));
+			attachFolderPathAutocomplete({
+				input: text.inputEl,
+				getAllFolderPaths: () => this.getAllVaultFolderPaths(),
+				onSelect: (path) => {
+					selectedPath = path;
+				},
+			});
 		});
 		setting.addDropdown((dd) => {
 			if (sets.length === 0) {
@@ -204,11 +309,23 @@ export class FFSISettingTab extends PluginSettingTab {
 						new Notice(`"${folderPath}" is not a folder in this vault.`);
 						return;
 					}
+					const defaultId = set.statuses.some((s) => s.id === set.defaultStatusId)
+						? set.defaultStatusId
+						: set.statuses[0].id;
 					const children = folder.children.map((c) => c.path);
-					this.store.enableFolder(folderPath, set.id, set.statuses[0].id, true, children);
+					this.store.enableFolder(folderPath, set.id, defaultId, true, children);
 					this.plugin.explorerPatch.refreshAll();
 					this.display();
 				}),
 		);
+	}
+
+	private getAllVaultFolderPaths(): string[] {
+		const folders = this.app.vault.getAllLoadedFiles().filter((f): f is TFolder => f instanceof TFolder);
+		const paths = new Set<string>([ROOT_PATH]);
+		for (const folder of folders) {
+			paths.add(folder.path === "/" ? ROOT_PATH : folder.path);
+		}
+		return Array.from(paths).sort((a, b) => a.localeCompare(b));
 	}
 }

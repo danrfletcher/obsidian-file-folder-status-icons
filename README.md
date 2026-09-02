@@ -18,9 +18,14 @@ tree — think ClickUp's status pills, applied to your vault structure.
   that folder is assigned its default status. You can also assign folders
   directly from Settings.
 - **Click a dot to change it.** Click any status icon to open a small
-  popup and re-assign that file or folder's status.
+  popup, with a curated pastel color palette plus a fully custom color
+  picker, and re-assign that file or folder's status.
 - **Group by status.** Enabled folders automatically sort their contents by
-  status, and that order persists across restarts.
+  status, and that order persists across restarts — even if a folder
+  relying on an ancestor's settings gets moved elsewhere.
+- **Completed statuses.** Mark any status "completed" and hide items in
+  that state from the tree per folder, toggleable from Settings or a
+  right-click.
 - **Nothing touches your notes.** All assignments live in the plugin's own
   data file — no frontmatter is ever written.
 

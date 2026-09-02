@@ -77,6 +77,15 @@ export class ExplorerPatch {
 		);
 		menu.addItem((item) =>
 			item
+				.setTitle(own.hideCompleted ? "Show completed items" : "Hide completed items")
+				.setIcon(own.hideCompleted ? "eye" : "eye-off")
+				.onClick(() => {
+					this.store.updateFolderConfig(folderPath, { hideCompleted: !own.hideCompleted });
+					this.refreshAll();
+				}),
+		);
+		menu.addItem((item) =>
+			item
 				.setTitle("Disable statuses for this folder")
 				.setIcon("circle-slash")
 				.onClick(() => {
@@ -101,16 +110,12 @@ export class ExplorerPatch {
 				new Notice("That status set has no statuses yet — add some in settings first.");
 				return;
 			}
-			openStatusPopup({
-				anchor,
-				statusSet: set,
-				currentStatusId: set.statuses[0].id,
-				onSelect: (status) => {
-					const children = this.getDirectChildPaths(folderPath);
-					this.store.enableFolder(folderPath, set.id, status.id, true, children);
-					this.refreshAll();
-				},
-			});
+			const defaultId = set.statuses.some((s) => s.id === set.defaultStatusId)
+				? set.defaultStatusId
+				: set.statuses[0].id;
+			const children = this.getDirectChildPaths(folderPath);
+			this.store.enableFolder(folderPath, set.id, defaultId, true, children);
+			this.refreshAll();
 		};
 		if (sets.length === 1) {
 			proceed(sets[0].id);
@@ -178,6 +183,8 @@ export class ExplorerPatch {
 		const folderPath = this.containerFolderPath(container);
 		if (folderPath === null) return;
 
+		const cfg = this.store.resolveGoverningConfig(folderPath);
+
 		const rows = Array.from(container.children).filter(
 			(el): el is HTMLElement => el.instanceOf(HTMLElement) && (el.hasClass("nav-file") || el.hasClass("nav-folder")),
 		);
@@ -192,13 +199,14 @@ export class ExplorerPatch {
 			const path = rawPath === "/" ? ROOT_PATH : rawPath;
 			const display = this.store.resolveDisplay(path, folderPath);
 			this.decorateRow(titleEl, display);
+			const hide = !!(cfg?.hideCompleted && display?.status.isCompleted);
+			row.toggleClass("ffsi-hidden-completed", hide);
 			const rank = display
 				? display.statusSet.statuses.findIndex((s) => s.id === display.status.id)
 				: Number.POSITIVE_INFINITY;
 			ranked.push({ el: row, path, rank: rank < 0 ? Number.POSITIVE_INFINITY : rank, name: basename(path) });
 		}
 
-		const cfg = this.store.resolveGoverningConfig(folderPath);
 		if (cfg && cfg.sortMode === "status") {
 			this.applySortOrder(container, ranked);
 		}
