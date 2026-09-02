@@ -12,11 +12,12 @@ Turn it on for a folder, and every item inside gets a colored dot next to its na
 - A content pipeline folder with *Draft*, *In Review*, and *Published* statuses, so the file tree itself is the workflow board.
 - A reading list or research folder with *To Read*, *Reading*, and *Done* — color-coded without touching a single note's frontmatter.
 - Different status sets for different areas of your vault — a client folder tracked as *Red / Amber / Green*, a personal task folder tracked as *Todo / Doing / Done*.
+- A folder that hides *Done* items once you mark that status "completed", so finished work stops taking up space in the sidebar without deleting anything.
 
 ## How it works
 
 1. Define one or more **status sets** in Settings — each is a named list of statuses, in order, each with a label and a color.
-2. Right-click any folder in the file tree and choose **Enable statuses for this folder**, pick a status set, and choose the default status new items should start with.
+2. Right-click any folder in the file tree and choose **Enable statuses for this folder**, pick a status set — every item starts at that set's default status.
 3. Every direct child of that folder gets a colored dot. Click a dot to reassign that file or folder's status via a small popup.
 4. The folder's contents sort and group by status automatically, and the grouping persists across restarts — it's saved in the plugin's own data, not in your notes.
 

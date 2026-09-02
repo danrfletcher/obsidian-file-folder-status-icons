@@ -15,9 +15,11 @@
 	transform: scale(1.15);
 }
 
-/* Items whose status is marked completed, in a folder with "Hide completed" on. */
-.ffsi-hidden-completed {
-	display: none !important;
+/* Items whose status is marked completed, in a folder with "Hide completed" on.
+   Doubled selector (not !important) to reliably beat the native row's own
+   display rules via specificity instead. */
+.ffsi-hidden-completed.ffsi-hidden-completed {
+	display: none;
 }
 
 /* Popup used for choosing a status / status set. */
