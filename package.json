@@ -1,0 +1,33 @@
+{
+	"name": "file-folder-status-icons",
+	"version": "0.1.0",
+	"description": "Traffic-light style status icons for files and folders in the Obsidian file tree, with custom statuses, per-folder defaults, and persistent sort/group by status.",
+	"main": "main.js",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"typecheck": "tsc -noEmit -skipLibCheck",
+		"lint": "eslint src",
+		"lint:fix": "eslint src --fix",
+		"version": "node version-bump.mjs && git add manifest.json versions.json"
+	},
+	"keywords": [
+		"obsidian",
+		"obsidian-plugin",
+		"file-explorer",
+		"status"
+	],
+	"author": "Dan Fletcher",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^20.14.9",
+		"@typescript-eslint/eslint-plugin": "^7.16.0",
+		"@typescript-eslint/parser": "^7.16.0",
+		"builtin-modules": "^3.3.0",
+		"esbuild": "^0.21.5",
+		"eslint": "^8.57.0",
+		"obsidian": "^1.5.7-1",
+		"tslib": "^2.6.3",
+		"typescript": "^5.5.3"
+	}
+}
