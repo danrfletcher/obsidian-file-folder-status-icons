@@ -20,11 +20,18 @@ export class ExplorerPatch {
 	private observer: MutationObserver | null = null;
 	private dirtyContainers = new Set<HTMLElement>();
 	private rafHandle: number | null = null;
+	// One delegated, capturing click listener per window rather than a
+	// listener per dot — see attachDotInterceptor() for why this has to be
+	// window-level (capture) rather than an ordinary listener on each dot.
+	private dotClickListeners = new Map<Window, (evt: MouseEvent) => void>();
 
 	constructor(private app: App, private store: DataStore) {}
 
 	enable(): void {
-		this.forEachExplorerView((view) => this.attachObserver(view.containerEl));
+		this.forEachExplorerView((view) => {
+			this.attachObserver(view.containerEl);
+			this.attachDotInterceptor(view.containerEl);
+		});
 		this.refreshAll();
 	}
 
@@ -35,6 +42,10 @@ export class ExplorerPatch {
 			window.cancelAnimationFrame(this.rafHandle);
 			this.rafHandle = null;
 		}
+		for (const [win, listener] of this.dotClickListeners) {
+			win.removeEventListener("click", listener, true);
+		}
+		this.dotClickListeners.clear();
 		document.querySelectorAll(`.${DOT_CLASS}`).forEach((el) => el.remove());
 		// Belt-and-suspenders: a popup or menu-anchor left open at unload time
 		// would otherwise leak its own document-level listeners (see statusPopup.ts).
@@ -156,6 +167,46 @@ export class ExplorerPatch {
 		});
 	}
 
+	/**
+	 * Delegated click handling for `.ffsi-dot` elements, registered once per
+	 * window as a *capturing* listener on `window` itself.
+	 *
+	 * This has to preempt other plugins, not just stop the click bubbling
+	 * back up. Plugins like "Folder Notes" register their own click handler
+	 * on `document` with `capture: true` so they can intercept a click on a
+	 * folder's title before Obsidian's default expand/collapse behaviour
+	 * runs, and immediately call `stopImmediatePropagation()` there to open
+	 * the folder note instead. A capturing listener on `document` fires
+	 * during the capture phase, which happens *before* the event ever
+	 * reaches our dot — so a plain bubble-phase `addEventListener('click', …)`
+	 * on the dot itself (the previous approach) never even ran for folders
+	 * that have a folder note.
+	 *
+	 * The DOM's capture order is window → document → … → target, so a
+	 * capturing listener on `window` always runs before one on `document`,
+	 * regardless of plugin load order. Registering here — and stopping the
+	 * event ourselves — reliably wins that race instead of depending on it.
+	 */
+	private attachDotInterceptor(explorerRoot: HTMLElement): void {
+		const win = explorerRoot.win;
+		if (this.dotClickListeners.has(win)) return;
+		const listener = (evt: MouseEvent) => {
+			const target = evt.target;
+			if (!(target instanceof HTMLElement)) return;
+			const dot = target.closest<HTMLElement>(`.${DOT_CLASS}`);
+			if (!dot) return;
+			evt.preventDefault();
+			evt.stopImmediatePropagation();
+			// Read data-path fresh at click time rather than caching it — Obsidian
+			// can finish setting data-path slightly after the row is first mounted.
+			const titleEl = dot.parentElement;
+			const raw = titleEl?.getAttribute("data-path") ?? "";
+			this.onDotClick(dot, raw === "/" ? ROOT_PATH : raw);
+		};
+		win.addEventListener("click", listener, true);
+		this.dotClickListeners.set(win, listener);
+	}
+
 	private attachObserver(explorerRoot: HTMLElement): void {
 		this.observer?.disconnect();
 		this.observer = new MutationObserver((records) => {
@@ -240,16 +291,10 @@ export class ExplorerPatch {
 			const contentEl = titleEl.querySelector(".nav-file-title-content, .nav-folder-title-content");
 			if (contentEl) titleEl.insertBefore(dot, contentEl);
 			else titleEl.prepend(dot);
-			// Read data-path fresh at click time rather than closing over the
-			// `path` this row happened to resolve to on first decoration — Obsidian
-			// can finish setting data-path slightly after the row is first mounted,
-			// and this listener is only ever attached once per dot element.
-			dot.addEventListener("click", (evt) => {
-				evt.stopPropagation();
-				evt.preventDefault();
-				const raw = titleEl.getAttribute("data-path") ?? "";
-				this.onDotClick(dot!, raw === "/" ? ROOT_PATH : raw);
-			});
+			// Click handling is delegated to a single window-level capturing
+			// listener — see attachDotInterceptor() — rather than attached here,
+			// so it can preempt other plugins' own document-level capture
+			// listeners (e.g. Folder Notes intercepting folder-title clicks).
 		}
 		// `color` (not just `backgroundColor`) is set so the glow effect — which
 		// paints via `currentColor` in CSS — always matches this dot's status color.
