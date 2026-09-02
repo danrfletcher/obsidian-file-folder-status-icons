@@ -11,6 +11,10 @@ export interface ChoiceItem {
  * Small floating popup listing choices as an optional color swatch + label.
  * Backs both the tree's click-to-change-status icon and the folder-enable
  * flow's "pick a status set" / "pick a default status" steps.
+ *
+ * Uses the anchor's own `.doc`/`.win` throughout (rather than the global
+ * `document`/`window`) so this still opens in the right window if the
+ * triggering file explorer is in a popped-out window.
  */
 export function openChoicePopup(opts: {
 	anchor: HTMLElement;
@@ -19,12 +23,14 @@ export function openChoicePopup(opts: {
 	emptyMessage?: string;
 	onSelect: (item: ChoiceItem) => void;
 }): void {
-	document.querySelectorAll(".ffsi-popup").forEach((el) => el.remove());
+	const doc = opts.anchor.doc;
+	const win = opts.anchor.win;
 
-	const popup = document.body.createDiv({ cls: "ffsi-popup" });
+	doc.querySelectorAll(".ffsi-popup").forEach((el) => el.remove());
+
+	const popup = doc.body.createDiv({ cls: "ffsi-popup" });
 	const rect = opts.anchor.getBoundingClientRect();
-	popup.style.left = `${Math.round(rect.left)}px`;
-	popup.style.top = `${Math.round(rect.bottom + 4)}px`;
+	popup.setCssStyles({ left: `${Math.round(rect.left)}px`, top: `${Math.round(rect.bottom + 4)}px` });
 
 	if (opts.items.length === 0) {
 		popup.createDiv({ cls: "ffsi-popup-empty", text: opts.emptyMessage ?? "Nothing to choose from yet." });
@@ -35,7 +41,7 @@ export function openChoicePopup(opts: {
 		if (item.id === opts.currentId) row.addClass("is-active");
 		if (item.color) {
 			const swatch = row.createSpan({ cls: "ffsi-swatch" });
-			swatch.style.backgroundColor = item.color;
+			swatch.setCssStyles({ backgroundColor: item.color });
 		}
 		row.createSpan({ cls: "ffsi-popup-label", text: item.label });
 		row.addEventListener("click", (evt) => {
@@ -46,20 +52,20 @@ export function openChoicePopup(opts: {
 	}
 
 	// Keep the popup on screen if it would overflow the viewport bottom/right.
-	requestAnimationFrame(() => {
+	win.requestAnimationFrame(() => {
 		const popupRect = popup.getBoundingClientRect();
-		if (popupRect.bottom > window.innerHeight) {
-			popup.style.top = `${Math.max(4, Math.round(rect.top - popupRect.height - 4))}px`;
+		if (popupRect.bottom > win.innerHeight) {
+			popup.setCssStyles({ top: `${Math.max(4, Math.round(rect.top - popupRect.height - 4))}px` });
 		}
-		if (popupRect.right > window.innerWidth) {
-			popup.style.left = `${Math.max(4, Math.round(window.innerWidth - popupRect.width - 4))}px`;
+		if (popupRect.right > win.innerWidth) {
+			popup.setCssStyles({ left: `${Math.max(4, Math.round(win.innerWidth - popupRect.width - 4))}px` });
 		}
 	});
 
 	function close() {
 		popup.remove();
-		document.removeEventListener("mousedown", onOutsideClick, true);
-		document.removeEventListener("keydown", onKeydown, true);
+		doc.removeEventListener("mousedown", onOutsideClick, true);
+		doc.removeEventListener("keydown", onKeydown, true);
 	}
 	function onOutsideClick(evt: MouseEvent) {
 		if (!popup.contains(evt.target as Node)) close();
@@ -68,9 +74,9 @@ export function openChoicePopup(opts: {
 		if (evt.key === "Escape") close();
 	}
 	// Deferred so the click that opened the popup doesn't immediately close it.
-	setTimeout(() => {
-		document.addEventListener("mousedown", onOutsideClick, true);
-		document.addEventListener("keydown", onKeydown, true);
+	win.setTimeout(() => {
+		doc.addEventListener("mousedown", onOutsideClick, true);
+		doc.addEventListener("keydown", onKeydown, true);
 	}, 0);
 }
 
