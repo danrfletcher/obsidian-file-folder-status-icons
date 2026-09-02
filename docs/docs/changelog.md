@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1
+
+- Fixed: clicking a status dot on a folder that has a **folder note** (e.g.
+  the [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes)
+  plugin) did nothing — that plugin's own click handling on the file tree
+  ate the click before it reached this plugin. The change-status popup now
+  opens reliably for those folders too, files and plain folders unaffected.
+
 ## 0.3.0
 
 - Fixed: a status added to a set *after* a folder was already assigned to it
