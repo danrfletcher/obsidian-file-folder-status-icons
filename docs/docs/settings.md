@@ -36,6 +36,8 @@ Lists every folder that currently has statuses turned on:
 - **Inherit to subfolders** — a labeled toggle for whether its configuration is inherited by subfolders that don't have their own (on by default).
 - **Hide completed** — a labeled toggle to hide items whose status is marked completed from the tree entirely.
 - A **trash icon** to disable statuses for that folder (assignments are preserved, not deleted).
+- **Apply statuses to** — separate **Files** and **Folders** toggles, both on by default. Turn either off to stop showing/sorting-by status for that type under this folder. See [Applying statuses to files vs. folders](reference/folders.md#applying-statuses-to-files-vs-folders).
+- **Truncate statuses** — a collapsible panel, one row per status in the folder's status set, each with a toggle and a text field for a custom summary label. See [Truncating large groups](reference/folders.md#truncating-large-groups).
 
 ## Assign a folder
 

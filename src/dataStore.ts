@@ -1,5 +1,5 @@
 import type { Plugin } from "obsidian";
-import { DEFAULT_COLOR_PALETTE, FolderConfig, PluginData, ResolvedDisplay, StatusDefinition, StatusSet, createEmptyPluginData } from "./types";
+import { DEFAULT_COLOR_PALETTE, FolderConfig, PluginData, ResolvedDisplay, StatusDefinition, StatusSet, TruncationRule, createEmptyPluginData } from "./types";
 import { ROOT_PATH, parentPath, rewritePathOnRename } from "./pathUtils";
 import { generateId } from "./colorUtils";
 
@@ -136,6 +136,10 @@ export class DataStore {
 			if (cfg.statusSetId === setId && cfg.defaultStatusId === statusId) {
 				cfg.defaultStatusId = set.statuses[0]?.id ?? "";
 			}
+			// A truncation rule for a status that no longer exists would just dangle.
+			if (cfg.statusSetId === setId && cfg.truncatedStatuses?.[statusId]) {
+				delete cfg.truncatedStatuses[statusId];
+			}
 		}
 		this.requestSave();
 	}
@@ -206,6 +210,9 @@ export class DataStore {
 			defaultStatusId,
 			sortMode: "status",
 			inheritToChildren,
+			applyToFiles: true,
+			applyToFolders: true,
+			truncatedStatuses: {},
 		};
 		for (const child of childPaths) {
 			if (!this.data.itemStatuses[child]) {
@@ -244,6 +251,18 @@ export class DataStore {
 		cfg.defaultStatusId = set.statuses.some((s) => s.id === set.defaultStatusId)
 			? set.defaultStatusId
 			: set.statuses[0].id;
+		// Truncation rules are keyed by status id from the *old* set — meaningless against a different one.
+		cfg.truncatedStatuses = {};
+		this.requestSave();
+	}
+
+	/** Enables/disables truncation (and/or updates the custom label) for one status under a folder assignment. */
+	setTruncationRule(folderPath: string, statusId: string, patch: Partial<TruncationRule>): void {
+		const cfg = this.data.folderConfigs[folderPath];
+		if (!cfg) return;
+		if (!cfg.truncatedStatuses) cfg.truncatedStatuses = {};
+		const existing = cfg.truncatedStatuses[statusId] ?? { enabled: false, label: "" };
+		cfg.truncatedStatuses[statusId] = { ...existing, ...patch };
 		this.requestSave();
 	}
 
@@ -299,11 +318,13 @@ export class DataStore {
 	 * Resolves what a path should actually display: the governing config for
 	 * its parent folder, plus the effective status (explicit assignment, or
 	 * the folder's default). Returns null if the item isn't governed by any
-	 * enabled folder.
+	 * enabled folder, or if the folder assignment has turned statuses off for
+	 * this item's type (see FolderConfig#applyToFiles / #applyToFolders).
 	 */
-	resolveDisplay(path: string, parentFolderPath: string): ResolvedDisplay | null {
+	resolveDisplay(path: string, parentFolderPath: string, isFolder: boolean): ResolvedDisplay | null {
 		const cfg = this.resolveGoverningConfig(parentFolderPath);
 		if (!cfg) return null;
+		if (isFolder ? cfg.applyToFolders === false : cfg.applyToFiles === false) return null;
 		const set = this.data.statusSets[cfg.statusSetId];
 		if (!set) return null;
 		const explicitId = this.data.itemStatuses[path];

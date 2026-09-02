@@ -17,3 +17,11 @@ Grouping only applies to a folder's **direct children** — files and subfolders
 ## Items without a status
 
 If a folder is enabled but a specific item somehow has no resolvable status (rare — usually only during a mid-edit state), it sorts to the end of the group, after every status-bearing item.
+
+## Files and folders separately
+
+If a folder assignment has turned statuses off for files or folders (see [Applying statuses to files vs. folders](folders.md#applying-statuses-to-files-vs-folders)), that type sorts as though it had no status at all — alphabetically, as a block below whichever type is still status-driven. With statuses on for files only, for example, files sort by status first, with plain, alphabetically-sorted subfolders underneath. Turn both off and the whole folder just sorts alphabetically.
+
+## Truncated groups
+
+A [truncated](folders.md#truncating-large-groups) status still takes part in the same sort — its single summary row sits wherever that status would normally rank, exactly as if it were one item with that status.

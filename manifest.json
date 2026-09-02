@@ -1,7 +1,7 @@
 {
 	"id": "file-folder-status-icons",
 	"name": "File and Folder Status Icons",
-	"version": "0.3.1",
+	"version": "0.4.0",
 	"minAppVersion": "1.4.16",
 	"description": "Traffic-light style status icons for files and folders in the file tree, with custom statuses, per-folder defaults, and persistent sort/group by status.",
 	"author": "Dan Fletcher",
