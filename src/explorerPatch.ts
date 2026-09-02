@@ -1,4 +1,4 @@
-import { App, Menu, Notice, TAbstractFile, TFolder, WorkspaceLeaf } from "obsidian";
+import { App, Menu, Notice, TAbstractFile, TFolder, View, WorkspaceLeaf } from "obsidian";
 import { DataStore } from "./dataStore";
 import { ROOT_PATH, basename, parentPath } from "./pathUtils";
 import { openStatusPopup, openStatusSetPopup } from "./statusPopup";
@@ -64,7 +64,7 @@ export class ExplorerPatch {
 				item
 					.setTitle("Enable statuses for this folder")
 					.setIcon("circle-dot")
-					.onClick((evt) => this.startEnableFlow(folderPath, evt as MouseEvent)),
+					.onClick((evt) => this.startEnableFlow(folderPath, evt)),
 			);
 			return;
 		}
@@ -73,7 +73,7 @@ export class ExplorerPatch {
 			item
 				.setTitle("Change default status for this folder")
 				.setIcon("circle-dot")
-				.onClick((evt) => this.startChangeDefaultFlow(folderPath, evt as MouseEvent)),
+				.onClick((evt) => this.startChangeDefaultFlow(folderPath, evt)),
 		);
 		menu.addItem((item) =>
 			item
@@ -88,7 +88,7 @@ export class ExplorerPatch {
 
 	// ---------- Enable / change-default flows (right-click menu) ----------
 
-	private startEnableFlow(folderPath: string, evt: MouseEvent): void {
+	private startEnableFlow(folderPath: string, evt: MouseEvent | KeyboardEvent): void {
 		const sets = this.store.getStatusSets();
 		if (sets.length === 0) {
 			new Notice("Create a status set in Settings → File & Folder Status Icons first.");
@@ -119,7 +119,7 @@ export class ExplorerPatch {
 		}
 	}
 
-	private startChangeDefaultFlow(folderPath: string, evt: MouseEvent): void {
+	private startChangeDefaultFlow(folderPath: string, evt: MouseEvent | KeyboardEvent): void {
 		const cfg = this.store.getFolderConfig(folderPath);
 		const set = cfg && this.store.getStatusSet(cfg.statusSetId);
 		if (!cfg || !set) return;
@@ -144,9 +144,9 @@ export class ExplorerPatch {
 
 	// ---------- Observation / decoration ----------
 
-	private forEachExplorerView(fn: (view: { containerEl: HTMLElement }) => void): void {
+	private forEachExplorerView(fn: (view: View) => void): void {
 		this.app.workspace.getLeavesOfType(FILE_EXPLORER_TYPE).forEach((leaf: WorkspaceLeaf) => {
-			fn(leaf.view as unknown as { containerEl: HTMLElement });
+			fn(leaf.view);
 		});
 	}
 
@@ -278,14 +278,17 @@ export class ExplorerPatch {
 	}
 }
 
-function anchorFromEvent(evt: MouseEvent): HTMLElement {
+function anchorFromEvent(evt: MouseEvent | KeyboardEvent): HTMLElement {
 	// Menu callbacks don't give us a stable DOM node to anchor a popup to,
 	// so drop an invisible 0x0 element at the click point and clean it up
 	// once the popup's own outside-click handler removes it from view.
+	// A keyboard-activated menu item has no pointer coordinates, so fall
+	// back to the viewport center rather than reading MouseEvent-only fields.
+	const point = evt instanceof MouseEvent ? { x: evt.clientX, y: evt.clientY } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 	const anchor = document.body.createDiv({ cls: "ffsi-menu-anchor" });
 	anchor.style.position = "fixed";
-	anchor.style.left = `${evt.clientX}px`;
-	anchor.style.top = `${evt.clientY}px`;
+	anchor.style.left = `${point.x}px`;
+	anchor.style.top = `${point.y}px`;
 	setTimeout(() => anchor.remove(), 10000);
 	return anchor;
 }
