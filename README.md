@@ -3,6 +3,8 @@
 Traffic-light style status icons for files and folders in Obsidian's file
 tree — think ClickUp's status pills, applied to your vault structure.
 
+![Screenshot](images/screenshot.png)
+
 ## Features
 
 - **Status dots in the file tree.** Any file or folder can show a small
