@@ -27,7 +27,9 @@ tree — think ClickUp's status pills, applied to your vault structure.
   that state from the tree per folder, toggleable from Settings or a
   right-click.
 - **Nothing touches your notes.** All assignments live in the plugin's own
-  data file — no frontmatter is ever written.
+  data file — no frontmatter is ever written. The plugin never makes
+  network requests. It does read your vault's list of folder paths (never
+  file contents) to power the "Assign a folder" autocomplete.
 
 ## Usage
 

@@ -28,6 +28,18 @@ Not currently — the plugin is marked `isDesktopOnly: true`. It works by patchi
 
 If you renamed or moved it **from inside Obsidian** (the sidebar, the command palette, drag-and-drop), yes — the plugin listens for Obsidian's own rename event and rekeys the stored status automatically. If a file was renamed **outside Obsidian** (Finder, Terminal, another app) while the vault was closed, Obsidian's own file watcher may see that as a delete-and-recreate rather than a rename, in which case the new path won't have picked up the old status — it'll just fall back to the folder's default the next time Obsidian scans it.
 
+## I moved a folder that was inheriting its statuses — did it lose them?
+
+It shouldn't. If a folder had no status configuration of its own and was only inheriting from an enabled ancestor, moving it snapshots what it was inheriting and gives it that same configuration at its new location — see [Nested folders and inheritance](reference/folders.md#nested-folders-and-inheritance). If you do hit a case where this doesn't hold, please open an issue with the before/after folder structure.
+
+## Marked a status "completed" but items in it still show
+
+Completed only controls **hiding**, not display style — dots for completed items look the same as any other. To actually hide them, turn on **Hide completed** for that specific folder (Settings, or right-click the folder → **Hide completed items**). It's per-folder, so a completed item can be hidden in one folder's view and still show normally if inherited elsewhere.
+
+## Why does the plugin need my vault's folder list?
+
+The "Assign a folder" autocomplete (see [Settings Reference](settings.md#assign-a-folder)) suggests matching folder paths as you type, which requires reading the vault's folder structure. It never reads file contents, and never sends anything over the network — the plugin makes no network requests at all.
+
 ## What happens if I delete a status that's set as a folder's default?
 
 Any folder whose default was that status falls back to whichever status is now first in the set. Existing items that were already explicitly assigned that status keep showing it until you change them, even though it's no longer selectable as a *new* default going forward — remove or reassign them manually if you want a clean break.

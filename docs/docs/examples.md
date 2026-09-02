@@ -62,3 +62,7 @@ Putting **Lost** last (rather than sorting it with **New Lead**) keeps closed op
 ## Mixing status sets in one vault
 
 Nothing stops different folders from using entirely different status sets — a `Clients` folder tracked as Red/Amber/Green sitting right next to a `Reading List` folder tracked as To Read/Reading/Done. Each folder's [assignment](reference/folders.md) is independent.
+
+## Auto-hiding finished work
+
+Take any of the sets above and mark its "done" status — **Green**, **Published**, **Done**, **Won** — as [completed](reference/status-sets.md#completed-statuses) via that status's **"..."** menu. Then turn on **Hide completed** for the folder (Settings, or right-click the folder → **Hide completed items**). Finished items disappear from the sidebar entirely — nothing is deleted, and switching **Hide completed** back off brings them right back.
