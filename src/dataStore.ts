@@ -32,10 +32,13 @@ export class DataStore {
 	requestSave(): void {
 		if (this.saveQueued) return;
 		this.saveQueued = true;
-		void Promise.resolve().then(async () => {
-			this.saveQueued = false;
-			await this.plugin.saveData(this.data);
-		});
+		void this.flushSave();
+	}
+
+	private async flushSave(): Promise<void> {
+		await Promise.resolve(); // yield one microtask so synchronous callers coalesce into a single write
+		this.saveQueued = false;
+		await this.plugin.saveData(this.data);
 	}
 
 	// ---------- Status sets ----------
