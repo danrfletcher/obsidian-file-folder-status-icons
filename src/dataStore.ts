@@ -23,6 +23,7 @@ export class DataStore {
 				folderConfigs: loaded.folderConfigs ?? {},
 				itemStatuses: loaded.itemStatuses ?? {},
 				colorPalette: loaded.colorPalette ?? [...DEFAULT_COLOR_PALETTE],
+				glowEnabled: loaded.glowEnabled ?? false,
 			};
 			// Backfill fields added in later versions so data saved by an older
 			// build of the plugin doesn't leave sets without a default status.
@@ -167,6 +168,17 @@ export class DataStore {
 		this.requestSave();
 	}
 
+	// ---------- Design ----------
+
+	isGlowEnabled(): boolean {
+		return !!this.data.glowEnabled;
+	}
+
+	setGlowEnabled(enabled: boolean): void {
+		this.data.glowEnabled = enabled;
+		this.requestSave();
+	}
+
 	// ---------- Folder configs ----------
 
 	getFolderConfig(path: string): FolderConfig | undefined {
@@ -213,6 +225,25 @@ export class DataStore {
 		const cfg = this.data.folderConfigs[folderPath];
 		if (!cfg) return;
 		Object.assign(cfg, patch);
+		this.requestSave();
+	}
+
+	/**
+	 * Re-points a folder at a different status set entirely (the "Folder
+	 * assignments" dropdown in Settings). The folder's default status is reset
+	 * to the new set's own default — a per-folder default from the old set has
+	 * no meaning against a different set's statuses. Existing item statuses are
+	 * left untouched; `resolveDisplay` already falls back to the new default
+	 * for any item whose explicit status id doesn't exist in the new set.
+	 */
+	switchFolderStatusSet(folderPath: string, statusSetId: string): void {
+		const cfg = this.data.folderConfigs[folderPath];
+		const set = this.data.statusSets[statusSetId];
+		if (!cfg || !set || set.statuses.length === 0) return;
+		cfg.statusSetId = statusSetId;
+		cfg.defaultStatusId = set.statuses.some((s) => s.id === set.defaultStatusId)
+			? set.defaultStatusId
+			: set.statuses[0].id;
 		this.requestSave();
 	}
 

@@ -52,6 +52,8 @@ export interface PluginData {
 	itemStatuses: Record<string, string>;
 	/** Reusable hex swatches offered when picking a status color, seeded with a default pastel set. */
 	colorPalette: string[];
+	/** Neon glow around status dots in the file tree. Purely cosmetic, off by default. */
+	glowEnabled?: boolean;
 }
 
 export interface ResolvedDisplay {
@@ -79,5 +81,6 @@ export function createEmptyPluginData(): PluginData {
 		folderConfigs: {},
 		itemStatuses: {},
 		colorPalette: [...DEFAULT_COLOR_PALETTE],
+		glowEnabled: false,
 	};
 }
