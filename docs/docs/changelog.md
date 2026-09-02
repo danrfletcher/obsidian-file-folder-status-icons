@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0
+
+- Fixed: renaming a folder that only *inherited* its status configuration
+  (no explicit assignment of its own) — e.g. a subfolder created inside an
+  already-enabled folder — permanently disconnected it from that
+  inheritance, freezing a duplicate copy of its ancestor's configuration at
+  rename time instead of continuing to follow it. Renaming within the same
+  parent now leaves inheritance untouched; only an actual move to a
+  different parent still snapshots and carries the configuration along, as
+  intended.
+- **Apply statuses to files or folders independently** — each folder
+  assignment now has separate **Files** / **Folders** toggles (Settings →
+  Folder assignments), both on by default. Turn either off and that type
+  stops showing/sorting by status under this folder, sorting alphabetically
+  below the other type instead.
+- **Truncate statuses** — collapse 2 or more direct children sharing a
+  status into one summary row (e.g. "3 Ideas"), per status, per folder
+  assignment. Optional custom label text (e.g. "Project Ideas" instead of
+  the default "Ideas"). Click the summary row to expand it; double-click any
+  status dot in the expanded group to collapse it again.
+
 ## 0.3.1
 
 - Fixed: clicking a status dot on a folder that has a **folder note** (e.g.

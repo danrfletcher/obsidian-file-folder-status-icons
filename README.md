@@ -26,6 +26,14 @@ tree — think ClickUp's status pills, applied to your vault structure.
 - **Completed statuses.** Mark any status "completed" and hide items in
   that state from the tree per folder, toggleable from Settings or a
   right-click.
+- **Apply to files or folders independently.** Each folder assignment has
+  separate **Files** / **Folders** toggles (both on by default) — turn
+  either off and that type sorts alphabetically below the other, instead of
+  taking part in the status grouping.
+- **Truncate large groups.** Collapse 2+ items sharing a status into one
+  summary row (e.g. "3 Ideas"), with an optional custom label. Click the row
+  to expand it, double-click any status dot in the expanded group to
+  collapse it again.
 - **Glow.** An optional neon glow around status dots in the file tree,
   toggleable from Settings → Design. The dot itself never changes size.
 - **Nothing touches your notes.** All assignments live in the plugin's own

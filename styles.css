@@ -40,6 +40,48 @@
 	display: none;
 }
 
+/* Individual rows folded into a collapsed truncation-group summary row (see .ffsi-trunc-row below). */
+.ffsi-trunc-hidden.ffsi-trunc-hidden {
+	display: none;
+}
+
+/* Synthetic "N Label" summary row standing in for a collapsed truncation group. */
+.ffsi-trunc-row {
+	cursor: pointer;
+}
+
+.ffsi-trunc-row:hover .ffsi-trunc-title {
+	background: var(--nav-item-background-hover, var(--background-modifier-hover));
+}
+
+.ffsi-trunc-title {
+	display: flex;
+	align-items: center;
+}
+
+.ffsi-trunc-dot {
+	display: inline-block;
+	flex-shrink: 0;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	margin-right: 6px;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.ffsi-glow .ffsi-trunc-dot {
+	box-shadow:
+		0 0 0 1px rgba(0, 0, 0, 0.15),
+		0 0 3px 1px currentColor,
+		0 0 7px 2px currentColor;
+}
+
+/* Faded relative to a real item's title, so a summary row reads as a group rather than a note/folder. */
+.ffsi-trunc-text {
+	color: var(--text-muted);
+	opacity: 0.85;
+}
+
 /* Popup used for choosing a status / status set. */
 .ffsi-popup {
 	position: fixed;
@@ -173,6 +215,34 @@
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);
 	white-space: nowrap;
+}
+
+/* Folder assignments */
+.ffsi-folder-assignment {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	padding: 4px 12px;
+	margin-bottom: 12px;
+}
+
+.ffsi-trunc-settings-list {
+	padding: 0 0 8px;
+}
+
+.ffsi-trunc-settings-row .setting-item-control {
+	flex-wrap: nowrap;
+	align-items: center;
+}
+
+.ffsi-trunc-settings-swatch {
+	width: 14px;
+	height: 14px;
+	margin-right: 8px;
+}
+
+.ffsi-trunc-settings-name {
+	flex: 1;
+	font-size: var(--font-ui-small);
 }
 
 /* Color palette management */

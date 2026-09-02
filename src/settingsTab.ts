@@ -5,6 +5,8 @@ import { ROOT_PATH } from "./pathUtils";
 import { normalizeHexColor } from "./colorUtils";
 import { ChoiceItem, openChoicePopup, openColorPickerPopup } from "./statusPopup";
 import { attachFolderPathAutocomplete } from "./pathAutocomplete";
+import { pluralizeStatusLabel } from "./explorerPatch";
+import { FolderConfig, StatusSet } from "./types";
 
 export class FFSISettingTab extends PluginSettingTab {
 	/**
@@ -13,6 +15,8 @@ export class FFSISettingTab extends PluginSettingTab {
 	 * Lives on the tab instance (not persisted) — collapsed again next reload.
 	 */
 	private expandedSetIds = new Set<string>();
+	/** Same idea as expandedSetIds, but for each folder assignment's "Truncate statuses" sub-panel. Keyed by folder path. */
+	private expandedTruncationPaths = new Set<string>();
 
 	constructor(app: App, private plugin: FileFolderStatusIconsPlugin, private store: DataStore) {
 		super(app, plugin);
@@ -260,7 +264,8 @@ export class FFSISettingTab extends PluginSettingTab {
 
 		for (const cfg of configs) {
 			const set = this.store.getStatusSet(cfg.statusSetId);
-			const setting = new Setting(containerEl)
+			const card = containerEl.createDiv({ cls: "ffsi-folder-assignment" });
+			const setting = new Setting(card)
 				.setName(cfg.path === ROOT_PATH ? "/ (vault root)" : cfg.path)
 				.setDesc(set ? `Status set: ${set.name}` : "Status set no longer exists");
 
@@ -309,9 +314,87 @@ export class FFSISettingTab extends PluginSettingTab {
 					this.display();
 				}),
 			);
+
+			const typeRow = new Setting(card)
+				.setName("Apply statuses to")
+				.setDesc(
+					"Turn either off to sort that type separately below the other, alphabetically, without status "
+						+ "icons — e.g. statuses only for files leaves files sorted by status above plain, unsorted folders.",
+				);
+			typeRow.controlEl.createSpan({ cls: "ffsi-toggle-label", text: "Files" });
+			typeRow.addToggle((toggle) =>
+				toggle
+					.setValue(cfg.applyToFiles !== false)
+					.onChange((value) => {
+						this.store.updateFolderConfig(cfg.path, { applyToFiles: value });
+						this.plugin.explorerPatch.refreshAll();
+					}),
+			);
+			typeRow.controlEl.createSpan({ cls: "ffsi-toggle-label", text: "Folders" });
+			typeRow.addToggle((toggle) =>
+				toggle
+					.setValue(cfg.applyToFolders !== false)
+					.onChange((value) => {
+						this.store.updateFolderConfig(cfg.path, { applyToFolders: value });
+						this.plugin.explorerPatch.refreshAll();
+					}),
+			);
+
+			this.renderTruncationPanel(card, cfg, set);
 		}
 
 		this.renderAddFolderAssignment(containerEl);
+	}
+
+	/** Per-status "collapse 2+ into one summary row" toggles + custom label, for one folder assignment. */
+	private renderTruncationPanel(card: HTMLElement, cfg: FolderConfig, set: StatusSet | undefined): void {
+		if (!set || set.statuses.length === 0) return;
+		const isExpanded = this.expandedTruncationPaths.has(cfg.path);
+
+		new Setting(card)
+			.setName("Truncate statuses")
+			.setDesc('Collapse 2+ items sharing a status into one summary row, e.g. "3 Ideas".')
+			.addExtraButton((btn) =>
+				btn
+					.setIcon(isExpanded ? "chevron-down" : "chevron-right")
+					.setTooltip(isExpanded ? "Collapse" : "Expand")
+					.onClick(() => {
+						if (isExpanded) this.expandedTruncationPaths.delete(cfg.path);
+						else this.expandedTruncationPaths.add(cfg.path);
+						this.display();
+					}),
+			);
+
+		if (!isExpanded) return;
+
+		const list = card.createDiv({ cls: "ffsi-trunc-settings-list" });
+		for (const status of set.statuses) {
+			const rule = cfg.truncatedStatuses?.[status.id];
+			const enabled = !!rule?.enabled;
+
+			const row = new Setting(list).setClass("ffsi-trunc-settings-row");
+			const swatch = row.controlEl.createDiv({ cls: "ffsi-swatch ffsi-trunc-settings-swatch" });
+			swatch.setCssStyles({ backgroundColor: normalizeHexColor(status.color) });
+			row.controlEl.createSpan({ cls: "ffsi-trunc-settings-name", text: status.label });
+
+			row.addToggle((toggle) =>
+				toggle.setValue(enabled).onChange((value) => {
+					this.store.setTruncationRule(cfg.path, status.id, { enabled: value });
+					this.plugin.explorerPatch.refreshAll();
+					this.display();
+				}),
+			);
+			row.addText((text) => {
+				text
+					.setPlaceholder(pluralizeStatusLabel(status.label))
+					.setValue(rule?.label ?? "")
+					.setDisabled(!enabled)
+					.onChange((value) => {
+						this.store.setTruncationRule(cfg.path, status.id, { label: value });
+						this.plugin.explorerPatch.refreshAll();
+					});
+			});
+		}
 	}
 
 	private renderAddFolderAssignment(containerEl: HTMLElement): void {

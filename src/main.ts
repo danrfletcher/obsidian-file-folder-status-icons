@@ -2,6 +2,7 @@ import { Plugin, TAbstractFile, TFolder } from "obsidian";
 import { DataStore } from "./dataStore";
 import { ExplorerPatch } from "./explorerPatch";
 import { FFSISettingTab } from "./settingsTab";
+import { parentPath } from "./pathUtils";
 
 export default class FileFolderStatusIconsPlugin extends Plugin {
 	store!: DataStore;
@@ -27,7 +28,16 @@ export default class FileFolderStatusIconsPlugin extends Plugin {
 				// rename rewrites paths, and re-attached to its new path afterwards
 				// — otherwise moving it out from under its enabled ancestor would
 				// silently drop its statuses instead of carrying them along.
-				const inherited = file instanceof TFolder
+				// Only for an actual move to a *different* parent, though — a plain
+				// same-parent rename (e.g. "Ideas" -> "Ideas2") was previously
+				// materializing a duplicate, frozen copy of the ancestor's config on
+				// every rename of an ownerless folder, permanently disconnecting it
+				// from future changes to the folder it was inheriting from (a new
+				// status set, a new default status, etc) — and, more visibly, from
+				// resolveGoverningConfig, since a folder with its own explicit config
+				// no longer falls through to its parent's the way an ownerless one does.
+				const movedToNewParent = parentPath(oldPath) !== parentPath(file.path);
+				const inherited = file instanceof TFolder && movedToNewParent
 					? this.store.getInheritedConfigForOwnlessFolder(oldPath)
 					: null;
 				this.store.handleRename(oldPath, file.path);

@@ -2,10 +2,21 @@ import { App, Menu, Notice, TAbstractFile, TFolder, View, WorkspaceLeaf } from "
 import { DataStore } from "./dataStore";
 import { ROOT_PATH, basename, parentPath } from "./pathUtils";
 import { openStatusPopup, openStatusSetPopup } from "./statusPopup";
-import { ResolvedDisplay } from "./types";
+import { ResolvedDisplay, StatusDefinition, TruncationRule } from "./types";
 
 const FILE_EXPLORER_TYPE = "file-explorer";
 const DOT_CLASS = "ffsi-dot";
+/** Synthetic "N Status" summary row standing in for a collapsed truncation group. */
+const GROUP_ROW_CLASS = "ffsi-trunc-row";
+/**
+ * Set on a real item's `.ffsi-dot` while its truncation group is expanded —
+ * marks it as double-click-to-collapse and (see attachDotInterceptor) delays
+ * its normal single-click behaviour just long enough for a following
+ * dblclick to cancel it instead of both firing.
+ */
+const GROUP_MEMBER_ATTR = "data-ffsi-group";
+/** How long a single click on a group member's dot waits before opening the status popup, in case a dblclick follows. */
+const GROUP_CLICK_DELAY_MS = 300;
 
 /**
  * Decorates Obsidian's native file explorer with status dots, wires up the
@@ -24,6 +35,11 @@ export class ExplorerPatch {
 	// listener per dot — see attachDotInterceptor() for why this has to be
 	// window-level (capture) rather than an ordinary listener on each dot.
 	private dotClickListeners = new Map<Window, (evt: MouseEvent) => void>();
+	private dotDblClickListeners = new Map<Window, (evt: MouseEvent) => void>();
+	/** Pending (delayed) single-click handlers for truncation-group members, keyed by dot element — see attachDotInterceptor(). */
+	private pendingDotClicks = new Map<HTMLElement, number>();
+	/** Truncation groups the user has expanded, keyed by `${folderPath} ${statusId}`. Not persisted — collapsed again on reload. */
+	private expandedGroups = new Set<string>();
 
 	constructor(private app: App, private store: DataStore) {}
 
@@ -46,7 +62,16 @@ export class ExplorerPatch {
 			win.removeEventListener("click", listener, true);
 		}
 		this.dotClickListeners.clear();
-		document.querySelectorAll(`.${DOT_CLASS}`).forEach((el) => el.remove());
+		for (const [win, listener] of this.dotDblClickListeners) {
+			win.removeEventListener("dblclick", listener, true);
+		}
+		this.dotDblClickListeners.clear();
+		for (const [dot, handle] of this.pendingDotClicks) {
+			dot.win.clearTimeout(handle);
+		}
+		this.pendingDotClicks.clear();
+		this.expandedGroups.clear();
+		document.querySelectorAll(`.${DOT_CLASS}, .${GROUP_ROW_CLASS}`).forEach((el) => el.remove());
 		// Belt-and-suspenders: a popup or menu-anchor left open at unload time
 		// would otherwise leak its own document-level listeners (see statusPopup.ts).
 		document.querySelectorAll(".ffsi-popup, .ffsi-menu-anchor").forEach((el) => el.remove());
@@ -201,10 +226,45 @@ export class ExplorerPatch {
 			// can finish setting data-path slightly after the row is first mounted.
 			const titleEl = dot.parentElement;
 			const raw = titleEl?.getAttribute("data-path") ?? "";
-			this.onDotClick(dot, raw === "/" ? ROOT_PATH : raw);
+			const path = raw === "/" ? ROOT_PATH : raw;
+			const groupKey = dot.getAttribute(GROUP_MEMBER_ATTR);
+			if (groupKey) {
+				// This dot belongs to an expanded truncation group — hold off opening
+				// the status popup briefly in case a dblclick follows (which collapses
+				// the group instead; see the dblclick listener below).
+				const existing = this.pendingDotClicks.get(dot);
+				if (existing !== undefined) win.clearTimeout(existing);
+				const handle = win.setTimeout(() => {
+					this.pendingDotClicks.delete(dot);
+					this.onDotClick(dot, path);
+				}, GROUP_CLICK_DELAY_MS);
+				this.pendingDotClicks.set(dot, handle);
+				return;
+			}
+			this.onDotClick(dot, path);
 		};
 		win.addEventListener("click", listener, true);
 		this.dotClickListeners.set(win, listener);
+
+		const dblListener = (evt: MouseEvent) => {
+			const target = evt.target;
+			if (!(target instanceof HTMLElement)) return;
+			const dot = target.closest<HTMLElement>(`.${DOT_CLASS}`);
+			if (!dot) return;
+			const groupKey = dot.getAttribute(GROUP_MEMBER_ATTR);
+			if (!groupKey) return;
+			evt.preventDefault();
+			evt.stopImmediatePropagation();
+			const pending = this.pendingDotClicks.get(dot);
+			if (pending !== undefined) {
+				win.clearTimeout(pending);
+				this.pendingDotClicks.delete(dot);
+			}
+			this.expandedGroups.delete(groupKey);
+			this.refreshAll();
+		};
+		win.addEventListener("dblclick", dblListener, true);
+		this.dotDblClickListeners.set(win, dblListener);
 	}
 
 	private attachObserver(explorerRoot: HTMLElement): void {
@@ -230,10 +290,21 @@ export class ExplorerPatch {
 		});
 	}
 
-	/** Decorates every direct-child row of `container` and reorders them if the owning folder groups by status. */
+	/** Decorates every direct-child row of `container`, collapses/expands truncation groups, and reorders if the owning folder groups by status. */
 	private processContainer(container: HTMLElement): void {
 		const folderPath = this.containerFolderPath(container);
 		if (folderPath === null) return;
+
+		// Obsidian swaps a row's title into an editable input while the user is
+		// renaming it. Touching that row's DOM mid-edit (recreating the dot,
+		// moving the row via appendChild for sort order) can steal focus or move
+		// the input out from under the caret, which silently cancels the rename.
+		// Defer this whole pass until it's done — the "rename" vault event fires
+		// its own refreshAll() once the rename completes, so nothing is missed.
+		if (container.querySelector(".is-being-renamed")) return;
+
+		// Synthetic summary rows are rebuilt fresh every pass rather than diffed/reused.
+		container.querySelectorAll(`:scope > .${GROUP_ROW_CLASS}`).forEach((el) => el.remove());
 
 		const cfg = this.store.resolveGoverningConfig(folderPath);
 
@@ -241,27 +312,94 @@ export class ExplorerPatch {
 			(el): el is HTMLElement => el.instanceOf(HTMLElement) && (el.hasClass("nav-file") || el.hasClass("nav-folder")),
 		);
 
-		const ranked: { el: HTMLElement; path: string; rank: number; name: string }[] = [];
+		interface RowInfo {
+			el: HTMLElement;
+			titleEl: HTMLElement;
+			path: string;
+			rank: number;
+			name: string;
+			display: ResolvedDisplay | null;
+			hidden: boolean;
+		}
+		const infos: RowInfo[] = [];
 		for (const row of rows) {
-			const titleEl = row.hasClass("nav-file") || row.hasClass("nav-folder")
-				? row.querySelector<HTMLElement>(":scope > .nav-file-title, :scope > .nav-folder-title")
-				: null;
+			const titleEl = row.querySelector<HTMLElement>(":scope > .nav-file-title, :scope > .nav-folder-title");
 			if (!titleEl) continue;
 			const rawPath = titleEl.getAttribute("data-path") ?? "";
 			const path = rawPath === "/" ? ROOT_PATH : rawPath;
-			const display = this.store.resolveDisplay(path, folderPath);
-			this.decorateRow(titleEl, display);
-			const hide = !!(cfg?.hideCompleted && display?.status.isCompleted);
-			row.toggleClass("ffsi-hidden-completed", hide);
+			const isFolder = row.hasClass("nav-folder");
+			const display = this.store.resolveDisplay(path, folderPath, isFolder);
+			const hidden = !!(cfg?.hideCompleted && display?.status.isCompleted);
+			row.toggleClass("ffsi-hidden-completed", hidden);
 			const rank = display
 				? display.statusSet.statuses.findIndex((s) => s.id === display.status.id)
 				: Number.POSITIVE_INFINITY;
-			ranked.push({ el: row, path, rank: rank < 0 ? Number.POSITIVE_INFINITY : rank, name: basename(path) });
+			infos.push({ el: row, titleEl, path, rank: rank < 0 ? Number.POSITIVE_INFINITY : rank, name: basename(path), display, hidden });
+		}
+
+		// Tally how many (non-hidden) direct children share each truncation-enabled status.
+		const countByStatus = new Map<string, number>();
+		for (const info of infos) {
+			const statusId = info.display?.status.id;
+			if (!statusId || info.hidden) continue;
+			if (!cfg?.truncatedStatuses?.[statusId]?.enabled) continue;
+			countByStatus.set(statusId, (countByStatus.get(statusId) ?? 0) + 1);
+		}
+
+		const ranked: { el: HTMLElement; path: string; rank: number; name: string }[] = [];
+		const groupEmitted = new Set<string>();
+		for (const info of infos) {
+			const statusId = info.display?.status.id;
+			const groupable = !info.hidden && !!statusId && (countByStatus.get(statusId) ?? 0) >= 2;
+			const groupKey = groupable ? `${folderPath} ${statusId}` : null;
+			const expanded = groupKey ? this.expandedGroups.has(groupKey) : false;
+
+			if (groupKey && !expanded) {
+				this.decorateRow(info.titleEl, info.display);
+				info.el.toggleClass("ffsi-trunc-hidden", true);
+				if (!groupEmitted.has(groupKey)) {
+					groupEmitted.add(groupKey);
+					const set = cfg ? this.store.getStatusSet(cfg.statusSetId) : undefined;
+					const status = set?.statuses.find((s) => s.id === statusId);
+					const rule = cfg?.truncatedStatuses?.[statusId as string];
+					if (status && rule) {
+						const groupEl = this.buildGroupRow(container, status, rule, countByStatus.get(statusId as string) ?? 0, groupKey);
+						container.insertBefore(groupEl, info.el);
+						ranked.push({ el: groupEl, path: groupKey, rank: info.rank, name: "" });
+					}
+				}
+				continue;
+			}
+
+			info.el.toggleClass("ffsi-trunc-hidden", false);
+			this.decorateRow(info.titleEl, info.display, groupKey ?? undefined);
+			ranked.push({ el: info.el, path: info.path, rank: info.rank, name: info.name });
 		}
 
 		if (cfg && cfg.sortMode === "status") {
 			this.applySortOrder(container, ranked);
 		}
+	}
+
+	/** Builds the collapsed "N Label" summary row standing in for a truncated status group; click anywhere on it to expand. */
+	private buildGroupRow(container: HTMLElement, status: StatusDefinition, rule: TruncationRule, count: number, groupKey: string): HTMLElement {
+		// createDiv() appends to `container` immediately; the caller repositions
+		// it with insertBefore right after this returns.
+		const row = container.createDiv({ cls: GROUP_ROW_CLASS });
+		const titleEl = row.createDiv({ cls: "nav-file-title ffsi-trunc-title" });
+		const dot = titleEl.createSpan({ cls: "ffsi-trunc-dot" });
+		dot.setCssStyles({ backgroundColor: status.color, color: status.color });
+		const labelText = rule.label.trim() || pluralizeStatusLabel(status.label);
+		titleEl.createSpan({ cls: "ffsi-trunc-text", text: `${count} ${labelText}` });
+		row.setAttribute("aria-label", `Show ${count} ${labelText}`);
+		row.setAttribute("role", "button");
+		row.addEventListener("click", (evt) => {
+			evt.preventDefault();
+			evt.stopPropagation();
+			this.expandedGroups.add(groupKey);
+			this.refreshAll();
+		});
+		return row;
 	}
 
 	private applySortOrder(
@@ -280,7 +418,12 @@ export class ExplorerPatch {
 		}
 	}
 
-	private decorateRow(titleEl: HTMLElement, display: ResolvedDisplay | null): void {
+	/**
+	 * `groupKey`, when set, marks this row's dot as belonging to a currently
+	 * *expanded* truncation group — double-clicking it re-collapses the group
+	 * (see attachDotInterceptor()). Omit it for a normal, ungrouped row.
+	 */
+	private decorateRow(titleEl: HTMLElement, display: ResolvedDisplay | null, groupKey?: string): void {
 		let dot = titleEl.querySelector<HTMLElement>(`:scope > .${DOT_CLASS}`);
 		if (!display) {
 			dot?.remove();
@@ -301,6 +444,8 @@ export class ExplorerPatch {
 		dot.setCssStyles({ backgroundColor: display.status.color, color: display.status.color });
 		dot.setAttribute("aria-label", display.status.label);
 		dot.setAttribute("title", display.status.label);
+		if (groupKey) dot.setAttribute(GROUP_MEMBER_ATTR, groupKey);
+		else dot.removeAttribute(GROUP_MEMBER_ATTR);
 	}
 
 	private onDotClick(dot: HTMLElement, path: string): void {
@@ -308,7 +453,8 @@ export class ExplorerPatch {
 		const cfg = this.store.resolveGoverningConfig(parent);
 		const set = cfg && this.store.getStatusSet(cfg.statusSetId);
 		if (!cfg || !set) return;
-		const display = this.store.resolveDisplay(path, parent);
+		const isFolder = !!dot.closest(".nav-folder");
+		const display = this.store.resolveDisplay(path, parent, isFolder);
 		openStatusPopup({
 			anchor: dot,
 			statusSet: set,
@@ -349,4 +495,11 @@ function anchorFromEvent(evt: MouseEvent | KeyboardEvent): HTMLElement {
 	anchor.setCssStyles({ position: "fixed", left: `${point.x}px`, top: `${point.y}px` });
 	evt.win.setTimeout(() => anchor.remove(), 10000);
 	return anchor;
+}
+
+/** Default truncated-group label when the user hasn't set a custom one, e.g. "Idea" -> "Ideas". */
+export function pluralizeStatusLabel(label: string): string {
+	const trimmed = label.trim();
+	if (trimmed === "") return "Items";
+	return trimmed.toLowerCase().endsWith("s") ? trimmed : `${trimmed}s`;
 }

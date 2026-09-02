@@ -30,6 +30,16 @@ export interface StatusSet {
 	defaultStatusId: string;
 }
 
+export interface TruncationRule {
+	/** When true, and 2+ direct children of the folder share this status, they collapse into one summary row. */
+	enabled: boolean;
+	/**
+	 * Overrides the default pluralized status label in the summary text
+	 * (e.g. "Project Ideas" instead of the default "Ideas"). Blank uses the default.
+	 */
+	label: string;
+}
+
 export interface FolderConfig {
 	/** Vault-relative folder path. "" means the vault root. */
 	path: string;
@@ -41,6 +51,12 @@ export interface FolderConfig {
 	inheritToChildren: boolean;
 	/** If true, items whose resolved status is marked completed are hidden from the tree entirely. */
 	hideCompleted?: boolean;
+	/** If false, statuses aren't shown or sorted-by for files directly under this folder. Default true. */
+	applyToFiles?: boolean;
+	/** If false, statuses aren't shown or sorted-by for subfolders directly under this folder. Default true. */
+	applyToFolders?: boolean;
+	/** Per-status truncation rules for this folder's direct children, keyed by status id. */
+	truncatedStatuses?: Record<string, TruncationRule>;
 }
 
 export interface PluginData {

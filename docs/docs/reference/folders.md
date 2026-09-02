@@ -29,6 +29,25 @@ Each folder assignment has its own **Hide completed** toggle — turn it on and 
 
 ![Folder assignments showing labeled "Inherit to subfolders" and "Hide completed" toggles, next to the color palette](../assets/palette-and-folders.png)
 
+## Applying statuses to files vs. folders
+
+Each folder assignment has two independent toggles, **Files** and **Folders**, both on by default. Turn either off and that type stops showing status dots (and stops being sorted by status) under this folder — it's still there, just plain and alphabetical, sitting below whichever type is still status-driven. See [Sorting and Grouping](sorting.md#files-and-folders-separately) for exactly how that reorders the tree.
+
+This is useful when statuses only make sense for one type — e.g. a "project stage" status set that should color folders but leave the individual files inside them alone, or a note-status set that shouldn't apply to subfolders at all.
+
+## Truncating large groups
+
+A folder assignment can collapse a status into a single summary row once **2 or more** of its direct children share it — e.g. three items with status "Idea" become one row reading **"3 Ideas"**. Turn it on per status, per folder assignment, under the **Truncate statuses** section of **Folder assignments** in Settings.
+
+By default the summary text is the status's own label, pluralized (`Idea` → `Ideas`). The text field next to the toggle lets you override that with anything you like — e.g. `Project Ideas` instead of the default `Ideas` — the count is always prefixed automatically.
+
+**Opening and closing a group:**
+
+- Click the summary row (its dot or its text) to expand it back into the individual items, sorted in their normal position.
+- Double-click any item's status dot while its group is expanded to collapse it again.
+
+Truncation is evaluated per folder — the same status can be truncated in one folder and shown in full in another, and it only ever groups a folder's own direct children, never items from subfolders.
+
 ## Nested folders and inheritance
 
 A subfolder with no status configuration of its own **inherits** its nearest enabled ancestor's status set — so enabling `Projects` also puts dots on files inside `Projects/Mobile App` even though `Mobile App` was never explicitly enabled itself.
