@@ -36,6 +36,9 @@ export class ExplorerPatch {
 			this.rafHandle = null;
 		}
 		document.querySelectorAll(`.${DOT_CLASS}`).forEach((el) => el.remove());
+		// Belt-and-suspenders: a popup or menu-anchor left open at unload time
+		// would otherwise leak its own document-level listeners (see statusPopup.ts).
+		document.querySelectorAll(".ffsi-popup, .ffsi-menu-anchor").forEach((el) => el.remove());
 	}
 
 	/** Call after any data change (status edited, folder enabled/disabled, etc). */

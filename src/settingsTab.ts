@@ -13,7 +13,6 @@ export class FFSISettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "File & Folder Status Icons" });
 		containerEl.createEl("p", {
 			text: "Define statuses and colors below, then right-click any folder in the file tree and choose "
 				+ "“Enable statuses for this folder” — or assign a folder directly here.",
@@ -27,7 +26,7 @@ export class FFSISettingTab extends PluginSettingTab {
 	// ---------- Status sets ----------
 
 	private renderStatusSets(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Status sets" });
+		new Setting(containerEl).setName("Status sets").setHeading();
 
 		for (const set of this.store.getStatusSets()) {
 			const wrapper = containerEl.createDiv({ cls: "ffsi-set-card" });
@@ -119,7 +118,7 @@ export class FFSISettingTab extends PluginSettingTab {
 	// ---------- Folder assignments ----------
 
 	private renderFolderAssignments(containerEl: HTMLElement): void {
-		containerEl.createEl("h3", { text: "Folder assignments" });
+		new Setting(containerEl).setName("Folder assignments").setHeading();
 		containerEl.createEl("p", {
 			text: "Folders where statuses are currently turned on, and which status set governs their contents.",
 			cls: "setting-item-description",
