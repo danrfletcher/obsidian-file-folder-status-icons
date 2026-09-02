@@ -3,55 +3,17 @@ import { StatusDefinition, StatusSet } from "./types";
 export interface ChoiceItem {
 	id: string;
 	label: string;
-	/** Hex color for the swatch. Omit to render a plain text row (e.g. picking a status set). */
+	/** Hex color for the swatch. Omit to render a plain text row (e.g. picking a status set, or a menu action). */
 	color?: string;
 }
 
-/**
- * Small floating popup listing choices as an optional color swatch + label.
- * Backs both the tree's click-to-change-status icon and the folder-enable
- * flow's "pick a status set" / "pick a default status" steps.
- *
- * Uses the anchor's own `.doc`/`.win` throughout (rather than the global
- * `document`/`window`) so this still opens in the right window if the
- * triggering file explorer is in a popped-out window.
- */
-export function openChoicePopup(opts: {
-	anchor: HTMLElement;
-	items: ChoiceItem[];
-	currentId?: string;
-	emptyMessage?: string;
-	onSelect: (item: ChoiceItem) => void;
-}): void {
-	const doc = opts.anchor.doc;
-	const win = opts.anchor.win;
-
-	doc.querySelectorAll(".ffsi-popup").forEach((el) => el.remove());
-
-	const popup = doc.body.createDiv({ cls: "ffsi-popup" });
-	const rect = opts.anchor.getBoundingClientRect();
+/** Positions `popup` under `anchor` (flipping above/left if it would overflow) and wires outside-click/Escape dismissal. */
+function attachFloatingPopup(popup: HTMLElement, anchor: HTMLElement): void {
+	const doc = anchor.doc;
+	const win = anchor.win;
+	const rect = anchor.getBoundingClientRect();
 	popup.setCssStyles({ left: `${Math.round(rect.left)}px`, top: `${Math.round(rect.bottom + 4)}px` });
 
-	if (opts.items.length === 0) {
-		popup.createDiv({ cls: "ffsi-popup-empty", text: opts.emptyMessage ?? "Nothing to choose from yet." });
-	}
-
-	for (const item of opts.items) {
-		const row = popup.createDiv({ cls: "ffsi-popup-item" });
-		if (item.id === opts.currentId) row.addClass("is-active");
-		if (item.color) {
-			const swatch = row.createSpan({ cls: "ffsi-swatch" });
-			swatch.setCssStyles({ backgroundColor: item.color });
-		}
-		row.createSpan({ cls: "ffsi-popup-label", text: item.label });
-		row.addEventListener("click", (evt) => {
-			evt.stopPropagation();
-			opts.onSelect(item);
-			close();
-		});
-	}
-
-	// Keep the popup on screen if it would overflow the viewport bottom/right.
 	win.requestAnimationFrame(() => {
 		const popupRect = popup.getBoundingClientRect();
 		if (popupRect.bottom > win.innerHeight) {
@@ -78,6 +40,50 @@ export function openChoicePopup(opts: {
 		doc.addEventListener("mousedown", onOutsideClick, true);
 		doc.addEventListener("keydown", onKeydown, true);
 	}, 0);
+}
+
+/**
+ * Small floating popup listing choices as an optional color swatch + label.
+ * Backs the tree's click-to-change-status icon, the folder-enable flow's
+ * "pick a status set" step, and any plain text action menu (e.g. a status
+ * row's "..." menu).
+ *
+ * Uses the anchor's own `.doc`/`.win` throughout (rather than the global
+ * `document`/`window`) so this still opens in the right window if the
+ * triggering file explorer is in a popped-out window.
+ */
+export function openChoicePopup(opts: {
+	anchor: HTMLElement;
+	items: ChoiceItem[];
+	currentId?: string;
+	emptyMessage?: string;
+	onSelect: (item: ChoiceItem) => void;
+}): void {
+	const doc = opts.anchor.doc;
+	doc.querySelectorAll(".ffsi-popup").forEach((el) => el.remove());
+
+	const popup = doc.body.createDiv({ cls: "ffsi-popup" });
+
+	if (opts.items.length === 0) {
+		popup.createDiv({ cls: "ffsi-popup-empty", text: opts.emptyMessage ?? "Nothing to choose from yet." });
+	}
+
+	for (const item of opts.items) {
+		const row = popup.createDiv({ cls: "ffsi-popup-item" });
+		if (item.id === opts.currentId) row.addClass("is-active");
+		if (item.color) {
+			const swatch = row.createSpan({ cls: "ffsi-swatch" });
+			swatch.setCssStyles({ backgroundColor: item.color });
+		}
+		row.createSpan({ cls: "ffsi-popup-label", text: item.label });
+		row.addEventListener("click", (evt) => {
+			evt.stopPropagation();
+			opts.onSelect(item);
+			popup.remove();
+		});
+	}
+
+	attachFloatingPopup(popup, opts.anchor);
 }
 
 export function openStatusPopup(opts: {
@@ -112,4 +118,49 @@ export function openStatusSetPopup(opts: {
 			if (set) opts.onSelect(set);
 		},
 	});
+}
+
+/**
+ * Color picker popup: a grid of palette swatches, plus a native color input
+ * for anything custom, plus a way to save that custom color back into the
+ * palette for reuse.
+ */
+export function openColorPickerPopup(opts: {
+	anchor: HTMLElement;
+	palette: string[];
+	currentColor: string;
+	onPick: (hex: string) => void;
+	onSaveToPalette: (hex: string) => void;
+}): void {
+	const doc = opts.anchor.doc;
+	doc.querySelectorAll(".ffsi-popup").forEach((el) => el.remove());
+
+	const popup = doc.body.createDiv({ cls: "ffsi-popup ffsi-color-popup" });
+
+	const grid = popup.createDiv({ cls: "ffsi-color-grid" });
+	for (const hex of opts.palette) {
+		const swatch = grid.createDiv({ cls: "ffsi-swatch ffsi-color-grid-swatch" });
+		swatch.setCssStyles({ backgroundColor: hex });
+		if (hex.toLowerCase() === opts.currentColor.toLowerCase()) swatch.addClass("is-active");
+		swatch.setAttribute("aria-label", hex);
+		swatch.setAttribute("title", hex);
+		swatch.addEventListener("click", (evt) => {
+			evt.stopPropagation();
+			opts.onPick(hex);
+			popup.remove();
+		});
+	}
+
+	const customRow = popup.createDiv({ cls: "ffsi-color-custom-row" });
+	const customInput = customRow.createEl("input", { type: "color" });
+	customInput.value = opts.currentColor;
+	customInput.addEventListener("input", () => opts.onPick(customInput.value));
+
+	const saveBtn = customRow.createEl("button", { text: "Save to palette", cls: "ffsi-color-save-btn" });
+	saveBtn.addEventListener("click", (evt) => {
+		evt.stopPropagation();
+		opts.onSaveToPalette(customInput.value);
+	});
+
+	attachFloatingPopup(popup, opts.anchor);
 }

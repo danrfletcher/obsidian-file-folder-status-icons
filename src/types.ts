@@ -13,6 +13,8 @@ export interface StatusDefinition {
 	label: string;
 	/** Hex color, e.g. "#e03131". */
 	color: string;
+	/** Statuses marked completed can be hidden per folder (see FolderConfig#hideCompleted). A set may have more than one. */
+	isCompleted?: boolean;
 }
 
 export interface StatusSet {
@@ -20,6 +22,12 @@ export interface StatusSet {
 	name: string;
 	/** Order here defines both display order and sort precedence (index 0 = highest rank). */
 	statuses: StatusDefinition[];
+	/**
+	 * The status new folder assignments start from by default. Not necessarily
+	 * `statuses[0]` — it starts there when the set is first created, but stays
+	 * put if the user reorders statuses; only "Make default" moves it.
+	 */
+	defaultStatusId: string;
 }
 
 export interface FolderConfig {
@@ -31,6 +39,8 @@ export interface FolderConfig {
 	sortMode: "none" | "status";
 	/** If true, folders/files below this one inherit this config when they have no config of their own. */
 	inheritToChildren: boolean;
+	/** If true, items whose resolved status is marked completed are hidden from the tree entirely. */
+	hideCompleted?: boolean;
 }
 
 export interface PluginData {
@@ -40,6 +50,8 @@ export interface PluginData {
 	folderConfigs: Record<string, FolderConfig>;
 	/** Keyed by file/folder path -> status id (interpreted against the governing folder's status set). */
 	itemStatuses: Record<string, string>;
+	/** Reusable hex swatches offered when picking a status color, seeded with a default pastel set. */
+	colorPalette: string[];
 }
 
 export interface ResolvedDisplay {
@@ -47,11 +59,25 @@ export interface ResolvedDisplay {
 	status: StatusDefinition;
 }
 
+/** A pleasant default pastel palette, offered alongside the native color picker. */
+export const DEFAULT_COLOR_PALETTE: string[] = [
+	"#FFADAD",
+	"#FFD6A5",
+	"#FDFFB6",
+	"#CAFFBF",
+	"#9BF6FF",
+	"#A0C4FF",
+	"#BDB2FF",
+	"#FFC6FF",
+	"#E2E2E2",
+];
+
 export function createEmptyPluginData(): PluginData {
 	return {
 		dataVersion: 1,
 		statusSets: {},
 		folderConfigs: {},
 		itemStatuses: {},
+		colorPalette: [...DEFAULT_COLOR_PALETTE],
 	};
 }

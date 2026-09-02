@@ -1,5 +1,5 @@
 import type { Plugin } from "obsidian";
-import { FolderConfig, PluginData, ResolvedDisplay, StatusDefinition, StatusSet, createEmptyPluginData } from "./types";
+import { DEFAULT_COLOR_PALETTE, FolderConfig, PluginData, ResolvedDisplay, StatusDefinition, StatusSet, createEmptyPluginData } from "./types";
 import { ROOT_PATH, parentPath, rewritePathOnRename } from "./pathUtils";
 import { generateId } from "./colorUtils";
 
@@ -22,7 +22,18 @@ export class DataStore {
 				statusSets: loaded.statusSets ?? {},
 				folderConfigs: loaded.folderConfigs ?? {},
 				itemStatuses: loaded.itemStatuses ?? {},
+				colorPalette: loaded.colorPalette ?? [...DEFAULT_COLOR_PALETTE],
 			};
+			// Backfill fields added in later versions so data saved by an older
+			// build of the plugin doesn't leave sets without a default status.
+			let backfilled = false;
+			for (const set of Object.values(this.data.statusSets)) {
+				if (!set.defaultStatusId || !set.statuses.some((s) => s.id === set.defaultStatusId)) {
+					set.defaultStatusId = set.statuses[0]?.id ?? "";
+					backfilled = true;
+				}
+			}
+			if (backfilled) this.requestSave();
 		} else {
 			this.data = createEmptyPluginData();
 		}
@@ -52,7 +63,7 @@ export class DataStore {
 	}
 
 	createStatusSet(name: string): StatusSet {
-		const set: StatusSet = { id: generateId("set"), name, statuses: [] };
+		const set: StatusSet = { id: generateId("set"), name, statuses: [], defaultStatusId: "" };
 		this.data.statusSets[set.id] = set;
 		this.requestSave();
 		return set;
@@ -80,8 +91,10 @@ export class DataStore {
 	addStatus(setId: string, label: string, color: string): StatusDefinition | undefined {
 		const set = this.data.statusSets[setId];
 		if (!set) return undefined;
-		const status: StatusDefinition = { id: generateId("status"), label, color };
+		const status: StatusDefinition = { id: generateId("status"), label, color, isCompleted: false };
+		const wasEmpty = set.statuses.length === 0;
 		set.statuses.push(status);
+		if (wasEmpty) set.defaultStatusId = status.id;
 		this.requestSave();
 		return status;
 	}
@@ -94,10 +107,29 @@ export class DataStore {
 		this.requestSave();
 	}
 
+	/** The status a status set's own display treats as "Default Status" until reassigned via setDefaultStatus. */
+	setDefaultStatus(setId: string, statusId: string): void {
+		const set = this.data.statusSets[setId];
+		if (!set || !set.statuses.some((s) => s.id === statusId)) return;
+		set.defaultStatusId = statusId;
+		this.requestSave();
+	}
+
+	setStatusCompleted(setId: string, statusId: string, isCompleted: boolean): void {
+		const set = this.data.statusSets[setId];
+		const status = set?.statuses.find((s) => s.id === statusId);
+		if (!status) return;
+		status.isCompleted = isCompleted;
+		this.requestSave();
+	}
+
 	removeStatus(setId: string, statusId: string): void {
 		const set = this.data.statusSets[setId];
 		if (!set) return;
 		set.statuses = set.statuses.filter((s) => s.id !== statusId);
+		if (set.defaultStatusId === statusId) {
+			set.defaultStatusId = set.statuses[0]?.id ?? "";
+		}
 		// Folder configs defaulting to the removed status fall back to whatever is now first.
 		for (const cfg of Object.values(this.data.folderConfigs)) {
 			if (cfg.statusSetId === setId && cfg.defaultStatusId === statusId) {
@@ -116,6 +148,23 @@ export class DataStore {
 			set.statuses = reordered;
 			this.requestSave();
 		}
+	}
+
+	// ---------- Color palette ----------
+
+	getColorPalette(): string[] {
+		return [...this.data.colorPalette];
+	}
+
+	addPaletteColor(hex: string): void {
+		if (this.data.colorPalette.includes(hex)) return;
+		this.data.colorPalette.push(hex);
+		this.requestSave();
+	}
+
+	removePaletteColor(hex: string): void {
+		this.data.colorPalette = this.data.colorPalette.filter((c) => c !== hex);
+		this.requestSave();
 	}
 
 	// ---------- Folder configs ----------
@@ -164,6 +213,18 @@ export class DataStore {
 		const cfg = this.data.folderConfigs[folderPath];
 		if (!cfg) return;
 		Object.assign(cfg, patch);
+		this.requestSave();
+	}
+
+	/**
+	 * Copies a governing config (typically one resolved via inheritance) into an
+	 * explicit entry for `path`. Used when a folder that had no config of its own
+	 * moves, so whatever it was inheriting survives the move as its own record
+	 * instead of depending on still resolving to the same ancestor afterwards.
+	 */
+	materializeInheritedConfig(path: string, source: FolderConfig): void {
+		if (this.data.folderConfigs[path]) return; // already has its own config, nothing to do
+		this.data.folderConfigs[path] = { ...source, path };
 		this.requestSave();
 	}
 
@@ -224,6 +285,17 @@ export class DataStore {
 	}
 
 	// ---------- Rename / delete housekeeping ----------
+
+	/**
+	 * If `folderPath` is a folder that has no explicit config of its own but
+	 * currently resolves one through inheritance, returns that config — the
+	 * caller uses this to snapshot it *before* a rename/move, then calls
+	 * materializeInheritedConfig with the new path afterwards.
+	 */
+	getInheritedConfigForOwnlessFolder(folderPath: string): FolderConfig | null {
+		if (this.data.folderConfigs[folderPath]) return null; // has its own already, nothing to preserve
+		return this.resolveGoverningConfig(folderPath);
+	}
 
 	handleRename(oldPath: string, newPath: string): void {
 		let changed = false;

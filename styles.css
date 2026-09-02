@@ -15,6 +15,11 @@
 	transform: scale(1.15);
 }
 
+/* Items whose status is marked completed, in a folder with "Hide completed" on. */
+.ffsi-hidden-completed {
+	display: none !important;
+}
+
 /* Popup used for choosing a status / status set. */
 .ffsi-popup {
 	position: fixed;
@@ -75,6 +80,46 @@
 	pointer-events: none;
 }
 
+/* Color picker popup: palette grid + native custom picker. */
+.ffsi-color-popup {
+	max-width: 220px;
+}
+
+.ffsi-color-grid {
+	display: grid;
+	grid-template-columns: repeat(6, 1fr);
+	gap: 6px;
+	padding: 4px;
+}
+
+.ffsi-color-grid-swatch {
+	width: 22px;
+	height: 22px;
+	cursor: pointer;
+}
+
+.ffsi-color-grid-swatch.is-active {
+	box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
+.ffsi-color-custom-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 4px 4px;
+	border-top: 1px solid var(--background-modifier-border);
+	margin-top: 4px;
+}
+
+.ffsi-color-save-btn {
+	flex: 1;
+}
+
+/* Autocomplete dropdown for the "Assign a folder" path field. */
+.ffsi-autocomplete {
+	max-height: 220px;
+}
+
 /* Settings tab */
 .ffsi-set-card {
 	border: 1px solid var(--background-modifier-border);
@@ -85,4 +130,66 @@
 
 .ffsi-status-row .setting-item-control {
 	flex-wrap: nowrap;
+	align-items: center;
+}
+
+.ffsi-status-swatch {
+	width: 20px;
+	height: 20px;
+	cursor: pointer;
+}
+
+.ffsi-default-badge,
+.ffsi-completed-badge {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	background: var(--background-modifier-hover);
+	border-radius: var(--radius-s);
+	padding: 2px 6px;
+	white-space: nowrap;
+}
+
+.ffsi-toggle-label {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+/* Color palette management */
+.ffsi-palette-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+
+.ffsi-palette-item {
+	position: relative;
+}
+
+.ffsi-palette-swatch {
+	width: 26px;
+	height: 26px;
+	border-radius: var(--radius-s);
+}
+
+.ffsi-palette-remove {
+	position: absolute;
+	top: -6px;
+	right: -6px;
+	width: 14px;
+	height: 14px;
+	line-height: 14px;
+	text-align: center;
+	font-size: 11px;
+	border-radius: 50%;
+	background: var(--background-modifier-error);
+	color: var(--text-on-accent);
+	cursor: pointer;
+}
+
+.ffsi-palette-add {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
