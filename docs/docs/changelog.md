@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0
+
+- Fixed: a status added to a set *after* a folder was already assigned to it
+  now shows up immediately in that folder's change-status popup — no restart
+  needed.
+- **Folder assignments** in Settings: the dropdown next to each folder now
+  switches which **status set** governs it, instead of duplicating the
+  per-folder default-status control (right-click the folder → **Change
+  default status for this folder** for that). Switching sets resets the
+  folder's default to the new set's own default.
+- **Status sets** in Settings now start **collapsed** — click the chevron to
+  expand one you're editing. Cuts down on scrolling once you have a few sets
+  defined.
+- **Design → Glow**: an optional neon glow around status dots in the file
+  tree. The dot itself stays the same size either way — only the glow, which
+  paints outside the dot without affecting the row's height.
+
 ## 0.2.1
 
 - Style fix: the "Hide completed" rule no longer uses `!important` (a directory-review lint flag) — same effect, via selector specificity instead.

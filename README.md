@@ -26,6 +26,8 @@ tree — think ClickUp's status pills, applied to your vault structure.
 - **Completed statuses.** Mark any status "completed" and hide items in
   that state from the tree per folder, toggleable from Settings or a
   right-click.
+- **Glow.** An optional neon glow around status dots in the file tree,
+  toggleable from Settings → Design. The dot itself never changes size.
 - **Nothing touches your notes.** All assignments live in the plugin's own
   data file — no frontmatter is ever written. The plugin never makes
   network requests. It does read your vault's list of folder paths (never

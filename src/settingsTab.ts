@@ -7,6 +7,13 @@ import { ChoiceItem, openChoicePopup, openColorPickerPopup } from "./statusPopup
 import { attachFolderPathAutocomplete } from "./pathAutocomplete";
 
 export class FFSISettingTab extends PluginSettingTab {
+	/**
+	 * Status sets take up a lot of vertical space once they have a few statuses,
+	 * so each card starts collapsed; this tracks which ones the user has opened.
+	 * Lives on the tab instance (not persisted) — collapsed again next reload.
+	 */
+	private expandedSetIds = new Set<string>();
+
 	constructor(app: App, private plugin: FileFolderStatusIconsPlugin, private store: DataStore) {
 		super(app, plugin);
 	}
@@ -23,6 +30,7 @@ export class FFSISettingTab extends PluginSettingTab {
 
 		this.renderStatusSets(containerEl);
 		this.renderColorPalette(containerEl);
+		this.renderDesignSettings(containerEl);
 		this.renderFolderAssignments(containerEl);
 	}
 
@@ -33,9 +41,21 @@ export class FFSISettingTab extends PluginSettingTab {
 
 		for (const set of this.store.getStatusSets()) {
 			const wrapper = containerEl.createDiv({ cls: "ffsi-set-card" });
+			const isExpanded = this.expandedSetIds.has(set.id);
 
-			new Setting(wrapper)
+			const header = new Setting(wrapper)
 				.setName(set.name)
+				.setDesc(`${set.statuses.length} status${set.statuses.length === 1 ? "" : "es"}`)
+				.addExtraButton((btn) =>
+					btn
+						.setIcon(isExpanded ? "chevron-down" : "chevron-right")
+						.setTooltip(isExpanded ? "Collapse" : "Expand")
+						.onClick(() => {
+							if (isExpanded) this.expandedSetIds.delete(set.id);
+							else this.expandedSetIds.add(set.id);
+							this.display();
+						}),
+				)
 				.addExtraButton((btn) =>
 					btn.setIcon("trash").setTooltip("Delete status set").onClick(() => {
 						this.store.deleteStatusSet(set.id);
@@ -46,8 +66,11 @@ export class FFSISettingTab extends PluginSettingTab {
 				.addText((text) =>
 					text.setValue(set.name).onChange((value) => {
 						this.store.renameStatusSet(set.id, value || set.name);
+						header.setName(value || set.name);
 					}),
 				);
+
+			if (!isExpanded) continue;
 
 			const list = wrapper.createDiv({ cls: "ffsi-status-list" });
 			set.statuses.forEach((status, idx) => {
@@ -151,6 +174,7 @@ export class FFSISettingTab extends PluginSettingTab {
 			new Setting(wrapper).addButton((btn) =>
 				btn.setButtonText("Add status").onClick(() => {
 					this.store.addStatus(set.id, "New status", "#888888");
+					this.plugin.explorerPatch.refreshAll();
 					this.display();
 				}),
 			);
@@ -201,12 +225,29 @@ export class FFSISettingTab extends PluginSettingTab {
 		});
 	}
 
+	// ---------- Design ----------
+
+	private renderDesignSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName("Design").setHeading();
+
+		new Setting(containerEl)
+			.setName("Glow")
+			.setDesc("Add a neon glow around status icons in the file tree.")
+			.addToggle((toggle) =>
+				toggle.setValue(this.store.isGlowEnabled()).onChange((value) => {
+					this.store.setGlowEnabled(value);
+					this.plugin.explorerPatch.refreshAll();
+				}),
+			);
+	}
+
 	// ---------- Folder assignments ----------
 
 	private renderFolderAssignments(containerEl: HTMLElement): void {
 		new Setting(containerEl).setName("Folder assignments").setHeading();
 		containerEl.createEl("p", {
-			text: "Folders where statuses are currently turned on, and which status set governs their contents.",
+			text: "Folders where statuses are currently turned on. The dropdown switches which status set governs "
+				+ "a folder's contents — right-click the folder in the file tree to change its default status instead.",
 			cls: "setting-item-description",
 		});
 
@@ -215,18 +256,26 @@ export class FFSISettingTab extends PluginSettingTab {
 			containerEl.createEl("p", { text: "No folders have statuses enabled yet.", cls: "setting-item-description" });
 		}
 
+		const allSets = this.store.getStatusSets();
+
 		for (const cfg of configs) {
 			const set = this.store.getStatusSet(cfg.statusSetId);
 			const setting = new Setting(containerEl)
 				.setName(cfg.path === ROOT_PATH ? "/ (vault root)" : cfg.path)
 				.setDesc(set ? `Status set: ${set.name}` : "Status set no longer exists");
 
-			if (set) {
+			if (allSets.length > 0) {
 				setting.addDropdown((dd) => {
-					for (const status of set.statuses) dd.addOption(status.id, status.label);
-					dd.setValue(cfg.defaultStatusId).onChange((value) => {
-						this.store.updateFolderConfig(cfg.path, { defaultStatusId: value });
+					for (const s of allSets) dd.addOption(s.id, s.name);
+					// Falls back to the first available set if this folder's own set was
+					// deleted out from under it — same "no longer exists" case as above.
+					dd.setValue(set ? cfg.statusSetId : allSets[0].id);
+					dd.onChange((value) => {
+						// Also recovers a dangling assignment (set deleted out from under
+						// it): picking any set here re-points the folder at a real one.
+						this.store.switchFolderStatusSet(cfg.path, value);
 						this.plugin.explorerPatch.refreshAll();
+						this.display();
 					});
 				});
 			}

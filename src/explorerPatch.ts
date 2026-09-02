@@ -44,6 +44,7 @@ export class ExplorerPatch {
 	/** Call after any data change (status edited, folder enabled/disabled, etc). */
 	refreshAll(): void {
 		this.forEachExplorerView((view) => {
+			view.containerEl.toggleClass("ffsi-glow", this.store.isGlowEnabled());
 			const root = view.containerEl.querySelector<HTMLElement>(".nav-files-container");
 			if (!root) return;
 			// Re-decorate the root list plus every already-expanded subfolder — a
@@ -250,7 +251,9 @@ export class ExplorerPatch {
 				this.onDotClick(dot!, raw === "/" ? ROOT_PATH : raw);
 			});
 		}
-		dot.setCssStyles({ backgroundColor: display.status.color });
+		// `color` (not just `backgroundColor`) is set so the glow effect — which
+		// paints via `currentColor` in CSS — always matches this dot's status color.
+		dot.setCssStyles({ backgroundColor: display.status.color, color: display.status.color });
 		dot.setAttribute("aria-label", display.status.label);
 		dot.setAttribute("title", display.status.label);
 	}

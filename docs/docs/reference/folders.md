@@ -13,7 +13,11 @@ Either way, every direct child that doesn't already have a status of its own get
 
 ## Changing the default later
 
-Right-click an already-enabled folder and choose **Change default status for this folder** — or change it directly from the **Folder assignments** list in Settings. This only affects items that get a status assigned *from now on*; it doesn't retroactively change existing items.
+Right-click an already-enabled folder and choose **Change default status for this folder**. This only affects items that get a status assigned *from now on*; it doesn't retroactively change existing items.
+
+## Switching a folder's status set
+
+The dropdown next to a folder in the **Folder assignments** list (Settings) switches which status set governs it, without needing to disable and re-enable the folder. The folder's default status resets to the new set's own default. Existing items keep their status if the new set happens to have a status with the same id (e.g. switching back and forth between two sets); otherwise they fall back to the new default the next time they're displayed.
 
 ## Disabling a folder
 

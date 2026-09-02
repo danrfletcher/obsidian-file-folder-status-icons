@@ -15,6 +15,24 @@
 	transform: scale(1.15);
 }
 
+/* Neon glow (Settings → Design → Glow). Layered on top of the resting
+   box-shadow via extra shadow layers rather than a filter/outline, so the
+   dot's own box (and the file-tree row's line-height) never changes size —
+   only the shadow, which paints outside the box without affecting layout. */
+.ffsi-glow .ffsi-dot {
+	box-shadow:
+		0 0 0 1px rgba(0, 0, 0, 0.15),
+		0 0 3px 1px currentColor,
+		0 0 7px 2px currentColor;
+}
+
+.ffsi-glow .ffsi-dot:hover {
+	box-shadow:
+		0 0 0 1px rgba(0, 0, 0, 0.15),
+		0 0 4px 1px currentColor,
+		0 0 9px 3px currentColor;
+}
+
 /* Items whose status is marked completed, in a folder with "Hide completed" on.
    Doubled selector (not !important) to reliably beat the native row's own
    display rules via specificity instead. */
