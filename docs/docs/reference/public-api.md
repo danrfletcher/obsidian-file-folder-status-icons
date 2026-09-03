@@ -1,6 +1,6 @@
 # Public API (for plugin developers)
 
-Status Sets exposes a small read-only API for other plugins to build on top
+File Folder Status Sets exposes a small read-only API for other plugins to build on top
 of its status sets, rather than storing their own copy or reimplementing the
 status-change popup.
 
@@ -46,9 +46,9 @@ interface PublicApi {
 ```
 
 - **`getStatusSets` / `getStatusSet`** return snapshot copies — mutating the
-  returned objects has no effect on Status Sets' own data. Status sets are
-  never created, edited, or duplicated by a consumer; Status Sets owns that
-  data exclusively.
+  returned objects has no effect on File Folder Status Sets' own data. Status
+  sets are never created, edited, or duplicated by a consumer; File Folder
+  Status Sets owns that data exclusively.
 - **`isGlowEnabled`** reflects the Design → Glow toggle, so a consumer's own
   status icons can inherit it rather than exposing a second toggle.
 - **`onChange`** fires (no payload) whenever anything changes — a status

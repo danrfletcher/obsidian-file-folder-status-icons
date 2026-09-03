@@ -30,7 +30,7 @@ export class DataStore {
 	private pendingDeletes: Map<string, number> = new Map();
 	/** Subset of pendingDeletes' keys that are folders — see handleDelete. */
 	private pendingDeletedFolders: Set<string> = new Set();
-	private deleteFlushHandle: ReturnType<typeof setTimeout> | null = null;
+	private deleteFlushHandle: number | null = null;
 	/** Paths created recently — see recordCreate. */
 	private recentCreates: Map<string, { time: number; isFolder: boolean }> = new Map();
 
@@ -470,7 +470,7 @@ export class DataStore {
 		this.pendingDeletes.set(path, Date.now());
 		if (isFolder) this.pendingDeletedFolders.add(path);
 		if (this.deleteFlushHandle !== null) return;
-		this.deleteFlushHandle = setTimeout(() => this.flushPendingDeletes(), DELETE_BATCH_WINDOW_MS);
+		this.deleteFlushHandle = window.setTimeout(() => this.flushPendingDeletes(), DELETE_BATCH_WINDOW_MS);
 	}
 
 	private flushPendingDeletes(): void {
@@ -514,7 +514,7 @@ export class DataStore {
 	/** Flushes any batched deletes immediately and drops the timer — call on unload so a stray callback doesn't fire against a plugin that's gone. */
 	dispose(): void {
 		if (this.deleteFlushHandle === null) return;
-		clearTimeout(this.deleteFlushHandle);
+		window.clearTimeout(this.deleteFlushHandle);
 		this.flushPendingDeletes();
 	}
 

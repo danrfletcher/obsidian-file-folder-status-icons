@@ -1,5 +1,5 @@
 /**
- * Data model for Status Sets.
+ * Data model for File Folder Status Sets.
  *
  * Everything here is persisted in the plugin's own data.json (via
  * Plugin#loadData / Plugin#saveData) — nothing is ever written into note

@@ -1,4 +1,4 @@
-# Status Sets
+# File Folder Status Sets
 
 📖 **[Full documentation](https://danrfletcher.github.io/obsidian-file-folder-status-icons/)**
 
@@ -61,8 +61,8 @@ folders in Obsidian's file tree as traffic-light style icons.
 
 ### From Obsidian
 
-Settings → Community plugins → Browse → search "Status Sets" → Install →
-Enable.
+Settings → Community plugins → Browse → search "File Folder Status Sets" →
+Install → Enable.
 
 ### Manually
 

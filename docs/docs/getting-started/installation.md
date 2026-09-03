@@ -1,11 +1,11 @@
 # Installation
 
-Status Sets is a **desktop-only** plugin — it patches Obsidian's native file explorer directly, which hasn't been verified against Obsidian Mobile yet. `isDesktopOnly: true` in `manifest.json` reflects this.
+File Folder Status Sets is a **desktop-only** plugin — it patches Obsidian's native file explorer directly, which hasn't been verified against Obsidian Mobile yet. `isDesktopOnly: true` in `manifest.json` reflects this.
 
 ## From Obsidian's Community Plugins browser
 
 1. Open **Settings → Community plugins → Browse**.
-2. Search for "Status Sets".
+2. Search for "File Folder Status Sets".
 3. Click **Install**, then **Enable**.
 
 ## Manual install
@@ -14,7 +14,7 @@ Status Sets is a **desktop-only** plugin — it patches Obsidian's native file e
 2. Create a folder named `file-folder-status-icons` inside your vault's `.obsidian/plugins/` directory.
 3. Place the three downloaded files inside it.
 4. Reload Obsidian (or use **Settings → Community plugins → Reload plugins**).
-5. Enable **Status Sets** under **Settings → Community plugins**.
+5. Enable **File Folder Status Sets** under **Settings → Community plugins**.
 
 ## BRAT (Beta Reviewers Auto-update Tool)
 

@@ -3,7 +3,7 @@ import { openStatusPopup } from "./statusPopup";
 import { StatusDefinition, StatusSet } from "./types";
 
 /**
- * Public surface for other plugins to read Status Sets' data and reuse its
+ * Public surface for other plugins to read File Folder Status Sets' data and reuse its
  * status-change popup, without depending on internal classes (DataStore,
  * ExplorerPatch, etc) that may change shape between releases.
  *
@@ -20,7 +20,7 @@ export interface PublicApi {
 	/** Bumped only on breaking changes to this interface. */
 	readonly apiVersion: 1;
 
-	/** Every status set currently defined. Returns a snapshot copy — mutating it has no effect on Status Sets' data. */
+	/** Every status set currently defined. Returns a snapshot copy — mutating it has no effect on File Folder Status Sets' data. */
 	getStatusSets(): StatusSet[];
 
 	/** A single status set by id, or undefined if it doesn't exist. Returns a snapshot copy, same caveat as getStatusSets. */
@@ -38,7 +38,7 @@ export interface PublicApi {
 	onChange(callback: () => void): () => void;
 
 	/**
-	 * Opens Status Sets' own status-change popup, anchored to `anchor`,
+	 * Opens File Folder Status Sets' own status-change popup, anchored to `anchor`,
 	 * listing `statusSet`'s statuses with `currentStatusId` highlighted.
 	 * Identical component/styling used internally, so it stays in sync with
 	 * any future visual changes to it here.
