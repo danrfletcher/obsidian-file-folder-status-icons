@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.1
+
+- Renamed the plugin (again) to **File Folder Status Sets** — "Status Sets"
+  turned out to exactly match the "Status sets" heading of the settings
+  section that lists your status sets, which the community directory's
+  automated review flags as a plugin restating its own name in a settings
+  heading. Nothing else changes; the settings section itself is still
+  called "Status sets".
+- Fixed: two timer calls added by 0.6.0's rename fix (`setTimeout`/
+  `clearTimeout`) used the bare global instead of `window.setTimeout`/
+  `window.clearTimeout`, which the community directory's review flags for
+  popout-window compatibility.
+
 ## 0.6.0
 
 - Added: cancelled statuses. Any status can be marked "cancelled" from its
