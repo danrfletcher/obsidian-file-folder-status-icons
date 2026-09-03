@@ -31,4 +31,4 @@ Nothing here touches your notes' content or frontmatter. Statuses live entirely 
 - Something not behaving as expected? Check the [FAQ and Troubleshooting](faq.md).
 - Want the same statuses on **checklist items inside your notes**, not just
   the file tree? See the companion
-  [Checklist Status Icons](https://danrfletcher.github.io/obsidian-checklist-status-icons/) plugin.
+  [Checklist Status Sets](https://danrfletcher.github.io/obsidian-checklist-status-icons/) plugin.

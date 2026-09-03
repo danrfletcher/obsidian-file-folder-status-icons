@@ -13,7 +13,7 @@ import { StatusDefinition, StatusSet } from "./types";
  *
  * UNSTABLE: this is a young, hand-rolled contract (no semver package, no
  * deprecation window) built specifically to support the companion
- * "Checklist Status Icons" plugin. Check `apiVersion` if you need to guard
+ * "Checklist Status Sets" plugin. Check `apiVersion` if you need to guard
  * against future breaking changes.
  */
 export interface PublicApi {
