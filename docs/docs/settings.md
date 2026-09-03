@@ -1,6 +1,6 @@
 # Settings Reference
 
-Everything lives under **Settings → File and Folder Status Icons**.
+Everything lives under **Settings → Status Sets**.
 
 ![The full settings tab: status sets, and folder assignments](assets/settings.png)
 

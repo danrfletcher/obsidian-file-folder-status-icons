@@ -4,7 +4,7 @@ This walks through setting up a classic Red / Amber / Green status set and turni
 
 ## 1. Create a status set
 
-Open **Settings → File and Folder Status Icons**. Under **Status sets**, click **New status set** and give it a name — "Traffic Light" works well for a general-purpose set.
+Open **Settings → Status Sets** and click **New status set**. Give it a name — "Traffic Light" works well for a general-purpose set.
 
 Click **Add status** three times and set each one up:
 

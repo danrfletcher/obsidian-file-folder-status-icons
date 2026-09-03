@@ -149,7 +149,7 @@ export class ExplorerPatch {
 	private startEnableFlow(folderPath: string, evt: MouseEvent | KeyboardEvent): void {
 		const sets = this.store.getStatusSets();
 		if (sets.length === 0) {
-			new Notice("Create a status set in Settings → File and Folder Status Icons first.");
+			new Notice("Create a status set in Settings → Status Sets first.");
 			return;
 		}
 		const anchor = anchorFromEvent(evt);
