@@ -24,6 +24,7 @@ const RECENT_CREATE_WINDOW_MS = 2000;
 export class DataStore {
 	private data: PluginData = createEmptyPluginData();
 	private saveQueued = false;
+	private changeListeners = new Set<() => void>();
 
 	/** Paths deleted since the last flush, with the time each delete was seen. */
 	private pendingDeletes: Map<string, number> = new Map();
@@ -34,6 +35,17 @@ export class DataStore {
 	private recentCreates: Map<string, { time: number; isFolder: boolean }> = new Map();
 
 	constructor(private plugin: Plugin) {}
+
+	/**
+	 * Notified after every mutation (see requestSave). Exists mainly so the
+	 * public API (see publicApi.ts) can let other plugins react live — e.g.
+	 * re-render an already-open note when Glow is toggled — without polling.
+	 * Returns an unsubscribe function.
+	 */
+	onChange(callback: () => void): () => void {
+		this.changeListeners.add(callback);
+		return () => this.changeListeners.delete(callback);
+	}
 
 	async load(): Promise<void> {
 		const loaded = (await this.plugin.loadData()) as Partial<PluginData> | null;
@@ -63,6 +75,7 @@ export class DataStore {
 
 	/** Debounced to a microtask so a burst of changes (e.g. rename of many descendants) writes once. */
 	requestSave(): void {
+		for (const cb of this.changeListeners) cb();
 		if (this.saveQueued) return;
 		this.saveQueued = true;
 		void this.flushSave();

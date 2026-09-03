@@ -3,10 +3,13 @@ import { DataStore } from "./dataStore";
 import { ExplorerPatch } from "./explorerPatch";
 import { FFSISettingTab } from "./settingsTab";
 import { parentPath } from "./pathUtils";
+import { createPublicApi, PublicApi } from "./publicApi";
 
 export default class FileFolderStatusIconsPlugin extends Plugin {
 	store!: DataStore;
 	explorerPatch!: ExplorerPatch;
+	/** See publicApi.ts — reached via app.plugins.plugins["file-folder-status-icons"]?.api. */
+	api!: PublicApi;
 
 	async onload(): Promise<void> {
 		this.store = new DataStore(this);
@@ -14,6 +17,7 @@ export default class FileFolderStatusIconsPlugin extends Plugin {
 
 		this.explorerPatch = new ExplorerPatch(this.app, this.store);
 		this.addSettingTab(new FFSISettingTab(this.app, this, this.store));
+		this.api = createPublicApi(this.store);
 
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file) => {
