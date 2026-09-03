@@ -113,7 +113,7 @@ export class DataStore {
 	addStatus(setId: string, label: string, color: string): StatusDefinition | undefined {
 		const set = this.data.statusSets[setId];
 		if (!set) return undefined;
-		const status: StatusDefinition = { id: generateId("status"), label, color, isCompleted: false };
+		const status: StatusDefinition = { id: generateId("status"), label, color, isCompleted: false, isCancelled: false };
 		const wasEmpty = set.statuses.length === 0;
 		set.statuses.push(status);
 		if (wasEmpty) set.defaultStatusId = status.id;
@@ -137,11 +137,23 @@ export class DataStore {
 		this.requestSave();
 	}
 
+	/** Marking a status completed unmarks it cancelled — a status is conceptually one or the other, not both. */
 	setStatusCompleted(setId: string, statusId: string, isCompleted: boolean): void {
 		const set = this.data.statusSets[setId];
 		const status = set?.statuses.find((s) => s.id === statusId);
 		if (!status) return;
 		status.isCompleted = isCompleted;
+		if (isCompleted) status.isCancelled = false;
+		this.requestSave();
+	}
+
+	/** Marking a status cancelled unmarks it completed — see setStatusCompleted. */
+	setStatusCancelled(setId: string, statusId: string, isCancelled: boolean): void {
+		const set = this.data.statusSets[setId];
+		const status = set?.statuses.find((s) => s.id === statusId);
+		if (!status) return;
+		status.isCancelled = isCancelled;
+		if (isCancelled) status.isCompleted = false;
 		this.requestSave();
 	}
 

@@ -4,7 +4,7 @@ Statuses are turned on **per folder**, not globally. A folder that's "enabled" g
 
 ## Two ways to enable a folder
 
-- **Right-click the folder** in the file tree → **Enable statuses for this folder** → pick a status set. Every item starts at that set's [default status](status-sets.md#default-status) — there's no separate "pick a default" step.
+- **Right-click the folder** in the file tree → **File and Folder Status Options** → **Enable statuses for this folder** → pick a status set. Every item starts at that set's [default status](status-sets.md#default-status) — there's no separate "pick a default" step.
 - **From Settings**, under **Folder assignments**, use the **Assign a folder** row: start typing a folder path and pick one from the live suggestions (or leave it blank for the vault root), pick a status set, and click **Enable**.
 
 ![The "Assign a folder" field suggesting matching vault folders as you type](../assets/folder-autocomplete.png)
@@ -13,7 +13,7 @@ Either way, every direct child that doesn't already have a status of its own get
 
 ## Changing the default later
 
-Right-click an already-enabled folder and choose **Change default status for this folder**. This only affects items that get a status assigned *from now on*; it doesn't retroactively change existing items.
+Right-click an already-enabled folder and choose **File and Folder Status Options** → **Change default status for this folder**. This only affects items that get a status assigned *from now on*; it doesn't retroactively change existing items.
 
 ## Switching a folder's status set
 
@@ -21,13 +21,13 @@ The dropdown next to a folder in the **Folder assignments** list (Settings) swit
 
 ## Disabling a folder
 
-Right-click an enabled folder and choose **Disable statuses for this folder**. The dots disappear, but nothing is deleted — every item's assignment is preserved, so re-enabling the folder (even with a different status set) restores exactly where you left off if you switch back.
+Right-click an enabled folder and choose **File and Folder Status Options** → **Disable statuses for this folder**. The dots disappear, but nothing is deleted — every item's assignment is preserved, so re-enabling the folder (even with a different status set) restores exactly where you left off if you switch back.
 
-## Hide completed
+## Hiding completed and cancelled items
 
-Each folder assignment has its own **Hide completed** toggle — turn it on and any item whose current status is marked [completed](status-sets.md#completed-statuses) disappears from the tree entirely (it's still there, just not shown in the sidebar). Toggle it from the **Folder assignments** list in Settings, or right-click an enabled folder and choose **Hide completed items** / **Show completed items**.
+Each folder assignment has its own **Hide** row with separate **Completed** and **Cancelled** toggles — turn either on and any item whose current status is marked [completed or cancelled](status-sets.md#completed-statuses) disappears from the tree entirely (it's still there, just not shown in the sidebar). Toggle them from the **Folder assignments** list in Settings, or right-click an enabled folder and choose **File and Folder Status Options** → **Hide/Show completed items** or **Hide/Show cancelled items**.
 
-![Folder assignments showing labeled "Inherit to subfolders" and "Hide completed" toggles, next to the color palette](../assets/palette-and-folders.png)
+![Folder assignments showing labeled "Inherit to subfolders" and "Hide" toggles, next to the color palette](../assets/palette-and-folders.png)
 
 ## Applying statuses to files vs. folders
 
