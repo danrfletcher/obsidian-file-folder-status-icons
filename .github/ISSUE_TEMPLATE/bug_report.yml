@@ -1,0 +1,70 @@
+name: Bug report
+description: Report something not working as expected in File and Folder Status Icons.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. What did you expect to happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+      description: Step-by-step instructions to trigger the bug, starting from a fresh vault or folder if relevant.
+      placeholder: |
+        1. Create a folder with statuses enabled
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: Settings → Community plugins → File and Folder Status Icons.
+      placeholder: e.g. 0.4.0
+    validations:
+      required: true
+
+  - type: input
+    id: obsidian-version
+    attributes:
+      label: Obsidian version
+      description: Settings → General (or Help → About).
+      placeholder: e.g. 1.13.7
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Other / not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: other-plugins
+    attributes:
+      label: Other relevant plugins
+      description: Especially any that also touch the file explorer (e.g. Folder Notes) — useful for tracking down conflicts.
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, console errors (Ctrl/Cmd+Shift+I → Console), or other context.
+    validations:
+      required: false

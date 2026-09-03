@@ -76,8 +76,10 @@
 		0 0 7px 2px currentColor;
 }
 
-/* Faded relative to a real item's title, so a summary row reads as a group rather than a note/folder. */
-.ffsi-trunc-text {
+/* Faded relative to a real item's title, so a summary row reads as a group rather than a note/folder.
+   Doubled selector (not !important) so this reliably beats the real .nav-file-title-content color
+   rule it's layered on top of — same font-size/line-height as real titles, just muted. */
+.ffsi-trunc-text.ffsi-trunc-text {
 	color: var(--text-muted);
 	opacity: 0.85;
 }
@@ -215,6 +217,7 @@
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);
 	white-space: nowrap;
+	flex-shrink: 0;
 }
 
 /* Folder assignments */
@@ -223,6 +226,31 @@
 	border-radius: var(--radius-m);
 	padding: 4px 12px;
 	margin-bottom: 12px;
+}
+
+/* A folder assignment's own name/path can be long — let it wrap and shrink
+   instead of being squeezed to nothing by a fixed-width control area next
+   to it in a narrow settings pane. */
+.ffsi-folder-assignment > .setting-item .setting-item-info {
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+
+/* A row holding more than one label+toggle pair (e.g. "Apply statuses to").
+   Each pair (see .ffsi-toggle-pair) stays intact and the row wraps between
+   pairs — rather than overlapping — once the pane gets too narrow to fit
+   them side by side. */
+.ffsi-multi-toggle-row .setting-item-control {
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	row-gap: 6px;
+}
+
+.ffsi-toggle-pair {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	flex-shrink: 0;
 }
 
 .ffsi-trunc-settings-list {
@@ -242,7 +270,11 @@
 
 .ffsi-trunc-settings-name {
 	flex: 1;
+	min-width: 0;
 	font-size: var(--font-ui-small);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* Color palette management */
@@ -282,4 +314,26 @@
 	display: flex;
 	align-items: center;
 	gap: 8px;
+}
+
+/* Support links */
+.ffsi-support-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.ffsi-support-btn {
+	padding: 6px 12px;
+}
+
+/* Doubled selector (not !important) to reliably beat Obsidian's own,
+   more-specific default button styling. */
+.ffsi-support-btn-coffee.ffsi-support-btn-coffee {
+	background: #ffdd00;
+	color: #000000;
+}
+
+.ffsi-support-btn-coffee.ffsi-support-btn-coffee:hover {
+	background: #ffe94d;
 }

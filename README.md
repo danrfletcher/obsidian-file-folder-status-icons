@@ -37,9 +37,12 @@ tree — think ClickUp's status pills, applied to your vault structure.
 - **Glow.** An optional neon glow around status dots in the file tree,
   toggleable from Settings → Design. The dot itself never changes size.
 - **Nothing touches your notes.** All assignments live in the plugin's own
-  data file — no frontmatter is ever written. The plugin never makes
-  network requests. It does read your vault's list of folder paths (never
-  file contents) to power the "Assign a folder" autocomplete.
+  data file — no frontmatter is ever written. The plugin itself never makes
+  network requests in the background — the only network activity it can ever
+  trigger is opening your browser to a GitHub or Buy Me a Coffee page, and
+  only when you click one of the buttons in Settings → Support to do exactly
+  that. It does read your vault's list of folder paths (never file contents)
+  to power the "Assign a folder" autocomplete.
 
 ## Usage
 

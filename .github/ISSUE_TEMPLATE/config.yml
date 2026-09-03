@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature request / idea
+    url: https://github.com/danrfletcher/obsidian-file-folder-status-icons/discussions/new?category=ideas
+    about: Suggest a new feature or improvement on the Ideas discussion board.
+  - name: Questions
+    url: https://github.com/danrfletcher/obsidian-file-folder-status-icons/discussions/new?category=q-a
+    about: Ask a question about using the plugin.
