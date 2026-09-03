@@ -17,7 +17,7 @@ Turn it on for a folder, and every item inside gets a colored dot next to its na
 ## How it works
 
 1. Define one or more **status sets** in Settings — each is a named list of statuses, in order, each with a label and a color.
-2. Right-click any folder in the file tree and choose **Enable statuses for this folder**, pick a status set — every item starts at that set's default status.
+2. Right-click any folder in the file tree, open **File and Folder Status Options**, and choose **Enable statuses for this folder**, pick a status set — every item starts at that set's default status.
 3. Every direct child of that folder gets a colored dot. Click a dot to reassign that file or folder's status via a small popup.
 4. The folder's contents sort and group by status automatically, and the grouping persists across restarts — it's saved in the plugin's own data, not in your notes.
 

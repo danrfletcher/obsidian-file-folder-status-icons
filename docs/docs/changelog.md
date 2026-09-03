@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.0
+
+- Added: cancelled statuses. Any status can be marked "cancelled" from its
+  "..." menu in Settings, alongside the existing "completed" — a status is
+  one or the other, not both, so marking one clears the other. Folder
+  assignments' "Hide completed" toggle is now "Hide", with separate
+  Completed/Cancelled toggles, and the file tree's right-click menu gained a
+  matching "Show/Hide cancelled items" entry.
+- Changed: this plugin's right-click file/folder menu entries are now nested
+  under a single "File and Folder Status Options" submenu instead of several
+  top-level entries.
+- Fixed: expanding or collapsing a status set or folder assignment card in
+  Settings scrolled the whole pane back to the top instead of leaving
+  everything above the toggled section in place.
+
 ## 0.5.2
 
 - Fixed: clicking a truncated status group's summary row (or an expanded

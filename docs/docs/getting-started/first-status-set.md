@@ -20,9 +20,9 @@ The order you put them in matters — it's also the sort order used when a folde
 
 ## 2. Turn it on for a folder
 
-Right-click any folder in the file tree — say, a `Projects` folder — and choose **Enable statuses for this folder**.
+Right-click any folder in the file tree — say, a `Projects` folder — open **File and Folder Status Options**, and choose **Enable statuses for this folder**.
 
-![Right-click menu on a folder, showing "Enable statuses for this folder"](../assets/enable-menu.png)
+![Right-click menu on a folder, showing the "File and Folder Status Options" submenu with "Enable statuses for this folder"](../assets/enable-menu.png)
 
 Pick the status set you just created, then pick a **default status** — the one every item in the folder starts out with. Every file and subfolder directly inside `Projects` now shows a colored dot.
 
@@ -34,7 +34,7 @@ Click any dot to open a small popup listing every status in that folder's status
 
 ## 4. Turning it off (and back on)
 
-Right-click the folder again and choose **Disable statuses for this folder** to turn the dots off. Your assignments aren't lost — re-enable it later and everything comes back exactly as you left it.
+Right-click the folder again and choose **File and Folder Status Options** → **Disable statuses for this folder** to turn the dots off. Your assignments aren't lost — re-enable it later and everything comes back exactly as you left it.
 
 ## Next
 

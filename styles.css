@@ -33,10 +33,10 @@
 		0 0 9px 3px currentColor;
 }
 
-/* Items whose status is marked completed, in a folder with "Hide completed" on.
-   Doubled selector (not !important) to reliably beat the native row's own
-   display rules via specificity instead. */
-.ffsi-hidden-completed.ffsi-hidden-completed {
+/* Items whose status is marked completed or cancelled, in a folder with the
+   matching "Hide" toggle on. Doubled selector (not !important) to reliably
+   beat the native row's own display rules via specificity instead. */
+.ffsi-hidden-status.ffsi-hidden-status {
 	display: none;
 }
 
@@ -178,7 +178,8 @@
 }
 
 .ffsi-default-badge,
-.ffsi-completed-badge {
+.ffsi-completed-badge,
+.ffsi-cancelled-badge {
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);
 	background: var(--background-modifier-hover);

@@ -31,6 +31,12 @@ export class FFSISettingTab extends PluginSettingTab {
 
 	display(): void {
 		const { containerEl } = this;
+		// containerEl is itself the scrollable pane. empty() drops its scrollHeight
+		// to ~0, which clamps scrollTop to 0 — and nothing below re-sets it once
+		// content is rebuilt, so every re-render (e.g. toggling a fold chevron)
+		// would otherwise jump the view back to the top. Restore it explicitly so
+		// only content below whatever changed visibly shifts.
+		const scrollTop = containerEl.scrollTop;
 		containerEl.empty();
 
 		containerEl.createEl("p", {
@@ -44,6 +50,8 @@ export class FFSISettingTab extends PluginSettingTab {
 		this.renderDesignSettings(containerEl);
 		this.renderFolderAssignments(containerEl);
 		this.renderSupportLinks(containerEl);
+
+		containerEl.scrollTop = scrollTop;
 	}
 
 	// ---------- Status sets ----------
@@ -123,6 +131,9 @@ export class FFSISettingTab extends PluginSettingTab {
 				if (status.isCompleted) {
 					row.controlEl.createSpan({ cls: "ffsi-completed-badge", text: "Completed" });
 				}
+				if (status.isCancelled) {
+					row.controlEl.createSpan({ cls: "ffsi-cancelled-badge", text: "Cancelled" });
+				}
 
 				row.addExtraButton((btn) =>
 					btn
@@ -159,6 +170,10 @@ export class FFSISettingTab extends PluginSettingTab {
 							id: "toggle-completed",
 							label: status.isCompleted ? "Unmark as completed status" : "Mark as completed status",
 						});
+						items.push({
+							id: "toggle-cancelled",
+							label: status.isCancelled ? "Unmark as cancelled status" : "Mark as cancelled status",
+						});
 						openChoicePopup({
 							anchor: btn.extraSettingsEl,
 							items,
@@ -167,6 +182,8 @@ export class FFSISettingTab extends PluginSettingTab {
 									this.store.setDefaultStatus(set.id, status.id);
 								} else if (item.id === "toggle-completed") {
 									this.store.setStatusCompleted(set.id, status.id, !status.isCompleted);
+								} else if (item.id === "toggle-cancelled") {
+									this.store.setStatusCancelled(set.id, status.id, !status.isCancelled);
 								}
 								this.plugin.explorerPatch.refreshAll();
 								this.display();
@@ -324,15 +341,18 @@ export class FFSISettingTab extends PluginSettingTab {
 					}),
 				);
 
-			new Setting(card)
-				.setName("Hide completed")
-				.setDesc("Hide items whose status is marked completed from the tree.")
-				.addToggle((toggle) =>
-					toggle.setValue(!!cfg.hideCompleted).onChange((value) => {
-						this.store.updateFolderConfig(cfg.path, { hideCompleted: value });
-						this.plugin.explorerPatch.refreshAll();
-					}),
-				);
+			const hideRow = new Setting(card)
+				.setClass("ffsi-multi-toggle-row")
+				.setName("Hide")
+				.setDesc("Hide items whose status is marked completed and/or cancelled from the tree.");
+			this.addLabeledToggle(hideRow, "Completed", !!cfg.hideCompleted, (value) => {
+				this.store.updateFolderConfig(cfg.path, { hideCompleted: value });
+				this.plugin.explorerPatch.refreshAll();
+			});
+			this.addLabeledToggle(hideRow, "Cancelled", !!cfg.hideCancelled, (value) => {
+				this.store.updateFolderConfig(cfg.path, { hideCancelled: value });
+				this.plugin.explorerPatch.refreshAll();
+			});
 
 			const typeRow = new Setting(card)
 				.setClass("ffsi-multi-toggle-row")

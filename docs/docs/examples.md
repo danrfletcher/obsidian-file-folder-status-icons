@@ -65,4 +65,4 @@ Nothing stops different folders from using entirely different status sets — a 
 
 ## Auto-hiding finished work
 
-Take any of the sets above and mark its "done" status — **Green**, **Published**, **Done**, **Won** — as [completed](reference/status-sets.md#completed-statuses) via that status's **"..."** menu. Then turn on **Hide completed** for the folder (Settings, or right-click the folder → **Hide completed items**). Finished items disappear from the sidebar entirely — nothing is deleted, and switching **Hide completed** back off brings them right back.
+Take any of the sets above and mark its "done" status — **Green**, **Published**, **Done**, **Won** — as [completed](reference/status-sets.md#completed-statuses) via that status's **"..."** menu (or **cancelled**, for a "won't do" status like **Lost**). Then turn on **Hide → Completed** (or **Cancelled**) for the folder (Settings, or right-click the folder → **File and Folder Status Options** → **Hide completed items** / **Hide cancelled items**). Finished items disappear from the sidebar entirely — nothing is deleted, and switching the toggle back off brings them right back.

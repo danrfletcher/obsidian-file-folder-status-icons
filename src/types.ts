@@ -15,6 +15,8 @@ export interface StatusDefinition {
 	color: string;
 	/** Statuses marked completed can be hidden per folder (see FolderConfig#hideCompleted). A set may have more than one. */
 	isCompleted?: boolean;
+	/** Statuses marked cancelled can be hidden per folder (see FolderConfig#hideCancelled). A set may have more than one. Mutually exclusive with isCompleted — see DataStore#setStatusCancelled. */
+	isCancelled?: boolean;
 }
 
 export interface StatusSet {
@@ -51,6 +53,8 @@ export interface FolderConfig {
 	inheritToChildren: boolean;
 	/** If true, items whose resolved status is marked completed are hidden from the tree entirely. */
 	hideCompleted?: boolean;
+	/** If true, items whose resolved status is marked cancelled are hidden from the tree entirely. */
+	hideCancelled?: boolean;
 	/** If false, statuses aren't shown or sorted-by for files directly under this folder. Default true. */
 	applyToFiles?: boolean;
 	/** If false, statuses aren't shown or sorted-by for subfolders directly under this folder. Default true. */
