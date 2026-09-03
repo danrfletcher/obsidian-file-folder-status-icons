@@ -1,6 +1,6 @@
 {
 	"name": "file-folder-status-icons",
-	"version": "0.6.0",
+	"version": "0.6.1",
 	"description": "Reusable status sets — custom statuses and colors, ClickUp-style — applied to files and folders in the Obsidian file tree, with per-folder defaults and persistent sort/group by status.",
 	"main": "main.js",
 	"scripts": {

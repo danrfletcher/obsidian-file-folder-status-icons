@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1
+
+- Added a small, unstable public API (`app.plugins.plugins["file-folder-status-icons"].api`)
+  so other plugins can read status sets, check the Glow setting, and reuse
+  the status-change popup, without depending on internal classes. Built to
+  support the companion [Checklist Status Icons](https://danrfletcher.github.io/obsidian-checklist-status-icons/)
+  plugin. See [Public API](reference/public-api.md).
+
 ## 0.6.0
 
 - Added: cancelled statuses. Any status can be marked "cancelled" from its

@@ -49,6 +49,7 @@ nav:
       - Assigning Folders and Defaults: 'reference/folders.md'
       - Sorting and Grouping: 'reference/sorting.md'
   - Settings Reference: 'settings.md'
+  - Public API (for developers): 'reference/public-api.md'
   - Examples: 'examples.md'
   - FAQ and Troubleshooting: 'faq.md'
   - Changelog: 'changelog.md'
