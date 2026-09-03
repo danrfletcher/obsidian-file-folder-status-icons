@@ -15,6 +15,14 @@ const GROUP_ROW_CLASS = "ffsi-trunc-row";
  * dblclick to cancel it instead of both firing.
  */
 const GROUP_MEMBER_ATTR = "data-ffsi-group";
+/**
+ * Set on a collapsed truncation group's summary row (the whole title
+ * element, not just the dot) — clicking anywhere on it, dot or text, expands
+ * the group. See attachDotInterceptor() for why this has to be read by the
+ * same window-level capturing listener rather than a plain listener on the
+ * row itself.
+ */
+const GROUP_SUMMARY_ATTR = "data-ffsi-trunc-summary";
 /** How long a single click on a group member's dot waits before opening the status popup, in case a dblclick follows. */
 const GROUP_CLICK_DELAY_MS = 300;
 
@@ -218,6 +226,24 @@ export class ExplorerPatch {
 		const listener = (evt: MouseEvent) => {
 			const target = evt.target;
 			if (!(target instanceof HTMLElement)) return;
+			// A collapsed truncation group's summary row — click its dot *or*
+			// its text (anywhere within the title) to expand. Checked first,
+			// and via the same window-level capturing listener as the dot
+			// handling below, for the same reason: a plain listener on the row
+			// itself would lose the race against other plugins' own capturing
+			// listeners on folder titles (e.g. Folder Notes) and silently never
+			// fire for a group whose first member happens to be a folder.
+			const summaryEl = target.closest<HTMLElement>(`[${GROUP_SUMMARY_ATTR}]`);
+			if (summaryEl) {
+				evt.preventDefault();
+				evt.stopImmediatePropagation();
+				const groupKey = summaryEl.getAttribute(GROUP_SUMMARY_ATTR);
+				if (groupKey) {
+					this.expandedGroups.add(groupKey);
+					this.refreshAll();
+				}
+				return;
+			}
 			const dot = target.closest<HTMLElement>(`.${DOT_CLASS}`);
 			if (!dot) return;
 			evt.preventDefault();
@@ -382,48 +408,73 @@ export class ExplorerPatch {
 	}
 
 	/**
+	 * Classes that mark transient/interactive state on a real row — stripped
+	 * from a clone (see buildGroupRow()) so a summary row never inherits e.g.
+	 * another row's selection highlight. Everything else about the clone's
+	 * class list is left alone: font, size, and spacing all come from
+	 * classes we don't know the name of (theme-dependent), so the only safe
+	 * way to reproduce them exactly is to not touch them.
+	 */
+	private static readonly CLONE_STATE_CLASSES = [
+		"is-selected",
+		"is-active",
+		"has-focus",
+		"is-being-renamed",
+		// The template row already has these two toggled on by the time it's
+		// cloned (see the call site in processContainer()) — both set
+		// `display: none`, which would otherwise make the clone invisible too.
+		"ffsi-trunc-hidden",
+		"ffsi-hidden-completed",
+	];
+
+	/**
 	 * Builds the collapsed "N Label" summary row standing in for a truncated
-	 * status group; click anywhere on it to expand.
+	 * status group; click the dot or the text — anywhere in the row — to
+	 * expand it (handled centrally in attachDotInterceptor(), keyed off
+	 * GROUP_SUMMARY_ATTR).
 	 *
 	 * Cloned from `templateEl` — a real row Obsidian rendered for one of the
-	 * group's members — rather than built from scratch. A from-scratch
-	 * `.nav-file-title` div doesn't automatically inherit every ancestor-scoped
-	 * rule (indentation, font-size, …) that a genuine row picks up from its
-	 * real place in Obsidian's own DOM/CSS, which previously left the summary
-	 * row's dot and text visibly out of alignment with real rows below it.
-	 * Cloning sidesteps needing to know or replicate any of that.
+	 * group's members — rather than built from scratch, and left with all of
+	 * its original classes intact (see CLONE_STATE_CLASSES). A from-scratch
+	 * `.nav-file-title` div doesn't inherit every ancestor- or theme-scoped
+	 * rule (indentation, font, dot sizing, …) a genuine row picks up from its
+	 * real place in Obsidian's DOM, and there's no reliable way to know in
+	 * advance which classes those rules are keyed off — so the only robust
+	 * fix is to keep the clone's classes as-is rather than guessing which of
+	 * them are load-bearing.
 	 */
 	private buildGroupRow(templateEl: HTMLElement, status: StatusDefinition, rule: TruncationRule, count: number, groupKey: string): HTMLElement {
-		const wasFolder = templateEl.hasClass("nav-folder");
 		const row = templateEl.cloneNode(true) as HTMLElement;
-		// Reset to bare canonical classes — drops any transient state the
-		// template happened to carry (selection, drag, rename-in-progress, …)
-		// while keeping whatever CSS those classes provide.
-		row.className = `${wasFolder ? "nav-folder" : "nav-file"} ${GROUP_ROW_CLASS}`;
+		for (const cls of ExplorerPatch.CLONE_STATE_CLASSES) row.removeClass(cls);
+		row.addClass(GROUP_ROW_CLASS);
+		row.removeAttribute("draggable");
 		// A cloned folder row would otherwise drag along its entire rendered
 		// subtree (if it happened to be expanded) as an inert, orphaned copy.
 		row.querySelectorAll(".nav-folder-children").forEach((el) => el.remove());
 
 		const titleEl = row.querySelector<HTMLElement>(":scope > .nav-file-title, :scope > .nav-folder-title");
 		if (titleEl) {
-			titleEl.className = `${wasFolder ? "nav-folder-title" : "nav-file-title"} ffsi-trunc-title`;
+			for (const cls of ExplorerPatch.CLONE_STATE_CLASSES) titleEl.removeClass(cls);
+			// Purely a hover-highlight hook (see styles.css) — added, not
+			// substituted, so it can't affect font/size the way overwriting
+			// the class list entirely did before.
+			titleEl.addClass("ffsi-trunc-title");
 			titleEl.removeAttribute("data-path");
+			titleEl.removeAttribute("draggable");
 			titleEl.empty();
-			const dot = titleEl.createSpan({ cls: "ffsi-trunc-dot" });
+			// Same DOT_CLASS a real item's dot uses (not a separate class) so
+			// sizing/glow can never drift out of sync with regular dots — one
+			// shared CSS rule, not two that happen to repeat the same numbers.
+			const dot = titleEl.createSpan({ cls: DOT_CLASS });
 			dot.setCssStyles({ backgroundColor: status.color, color: status.color });
-			// `.nav-file-title-content` (not just our own class) so the label
-			// inherits the exact same font rules real item titles get, on top of
-			// which our own class layers the faded/muted look.
+			// Plain `.nav-file-title-content`, no extra class of our own — the
+			// label should render pixel-identical to a real item's title, not
+			// just similar, so there's nothing here left to layer on top.
 			const labelText = rule.label.trim() || pluralizeStatusLabel(status.label);
-			titleEl.createSpan({ cls: "nav-file-title-content ffsi-trunc-text", text: `${count} ${labelText}` });
+			titleEl.createSpan({ cls: "nav-file-title-content", text: `${count} ${labelText}` });
 			titleEl.setAttribute("aria-label", `Show ${count} ${labelText}`);
 			titleEl.setAttribute("role", "button");
-			titleEl.addEventListener("click", (evt) => {
-				evt.preventDefault();
-				evt.stopPropagation();
-				this.expandedGroups.add(groupKey);
-				this.refreshAll();
-			});
+			titleEl.setAttribute(GROUP_SUMMARY_ATTR, groupKey);
 		}
 		return row;
 	}
