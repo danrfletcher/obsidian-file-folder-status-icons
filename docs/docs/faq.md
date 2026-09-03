@@ -32,9 +32,9 @@ If you renamed or moved it **from inside Obsidian** (the sidebar, the command pa
 
 It shouldn't. If a folder had no status configuration of its own and was only inheriting from an enabled ancestor, moving it snapshots what it was inheriting and gives it that same configuration at its new location — see [Nested folders and inheritance](reference/folders.md#nested-folders-and-inheritance). If you do hit a case where this doesn't hold, please open an issue with the before/after folder structure.
 
-## Marked a status "completed" but items in it still show
+## Marked a status "completed" or "cancelled" but items in it still show
 
-Completed only controls **hiding**, not display style — dots for completed items look the same as any other. To actually hide them, turn on **Hide completed** for that specific folder (Settings, or right-click the folder → **Hide completed items**). It's per-folder, so a completed item can be hidden in one folder's view and still show normally if inherited elsewhere.
+Completed/cancelled only control **hiding**, not display style — dots for completed or cancelled items look the same as any other. To actually hide them, turn on the matching **Hide** toggle for that specific folder (Settings, or right-click the folder → **File and Folder Status Options** → **Hide completed items** / **Hide cancelled items**). It's per-folder, so an item can be hidden in one folder's view and still show normally if inherited elsewhere.
 
 ## Why does the plugin need my vault's folder list?
 

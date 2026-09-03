@@ -32,6 +32,16 @@ const GROUP_SUMMARY_ATTR = "data-ffsi-trunc-summary";
 const DOUBLE_CLICK_MS = 400;
 
 /**
+ * `MenuItem.setSubmenu(): Menu` exists at runtime but isn't declared in
+ * Obsidian's public .d.ts — every plugin that builds a submenu (this
+ * includes several first-party-adjacent ones) casts through something like
+ * this rather than `any` everywhere it's used.
+ */
+interface WithSubmenu {
+	setSubmenu(): Menu;
+}
+
+/**
  * Decorates Obsidian's native file explorer with status dots, wires up the
  * click-to-change-status popup, the right-click enable/disable folder menu,
  * and keeps direct children of "group by status" folders sorted.
@@ -103,45 +113,68 @@ export class ExplorerPatch {
 		});
 	}
 
+	/**
+	 * All of this plugin's folder context-menu actions nest under a single
+	 * "File and Folder Status Options" submenu item, rather than adding
+	 * several top-level entries to Obsidian's already-crowded right-click
+	 * menu. `MenuItem.setSubmenu()` isn't part of the public API surface
+	 * (see the local `WithSubmenu` cast below) but is the standard mechanism
+	 * community plugins use for this — it's been stable across Obsidian
+	 * releases for years.
+	 */
 	registerFolderContextMenu(menu: Menu, file: TAbstractFile): void {
 		if (!(file instanceof TFolder)) return;
 		const folderPath = file.path === "/" ? ROOT_PATH : file.path;
 		const own = this.store.getFolderConfig(folderPath);
 
-		if (!own) {
-			menu.addItem((item) =>
-				item
-					.setTitle("Enable statuses for this folder")
-					.setIcon("circle-dot")
-					.onClick((evt) => this.startEnableFlow(folderPath, evt)),
-			);
-			return;
-		}
+		menu.addItem((item) => {
+			item.setTitle("File and Folder Status Options").setIcon("circle-dot");
+			const submenu = (item as unknown as WithSubmenu).setSubmenu();
 
-		menu.addItem((item) =>
-			item
-				.setTitle("Change default status for this folder")
-				.setIcon("circle-dot")
-				.onClick((evt) => this.startChangeDefaultFlow(folderPath, evt)),
-		);
-		menu.addItem((item) =>
-			item
-				.setTitle(own.hideCompleted ? "Show completed items" : "Hide completed items")
-				.setIcon(own.hideCompleted ? "eye" : "eye-off")
-				.onClick(() => {
-					this.store.updateFolderConfig(folderPath, { hideCompleted: !own.hideCompleted });
-					this.refreshAll();
-				}),
-		);
-		menu.addItem((item) =>
-			item
-				.setTitle("Disable statuses for this folder")
-				.setIcon("circle-slash")
-				.onClick(() => {
-					this.store.disableFolder(folderPath);
-					this.refreshAll();
-				}),
-		);
+			if (!own) {
+				submenu.addItem((sub) =>
+					sub
+						.setTitle("Enable statuses for this folder")
+						.setIcon("circle-dot")
+						.onClick((evt) => this.startEnableFlow(folderPath, evt)),
+				);
+				return;
+			}
+
+			submenu.addItem((sub) =>
+				sub
+					.setTitle("Change default status for this folder")
+					.setIcon("circle-dot")
+					.onClick((evt) => this.startChangeDefaultFlow(folderPath, evt)),
+			);
+			submenu.addItem((sub) =>
+				sub
+					.setTitle(own.hideCompleted ? "Show completed items" : "Hide completed items")
+					.setIcon(own.hideCompleted ? "eye" : "eye-off")
+					.onClick(() => {
+						this.store.updateFolderConfig(folderPath, { hideCompleted: !own.hideCompleted });
+						this.refreshAll();
+					}),
+			);
+			submenu.addItem((sub) =>
+				sub
+					.setTitle(own.hideCancelled ? "Show cancelled items" : "Hide cancelled items")
+					.setIcon(own.hideCancelled ? "eye" : "eye-off")
+					.onClick(() => {
+						this.store.updateFolderConfig(folderPath, { hideCancelled: !own.hideCancelled });
+						this.refreshAll();
+					}),
+			);
+			submenu.addItem((sub) =>
+				sub
+					.setTitle("Disable statuses for this folder")
+					.setIcon("circle-slash")
+					.onClick(() => {
+						this.store.disableFolder(folderPath);
+						this.refreshAll();
+					}),
+			);
+		});
 	}
 
 	// ---------- Enable / change-default flows (right-click menu) ----------
@@ -360,8 +393,11 @@ export class ExplorerPatch {
 			const path = rawPath === "/" ? ROOT_PATH : rawPath;
 			const isFolder = row.hasClass("nav-folder");
 			const display = this.store.resolveDisplay(path, folderPath, isFolder);
-			const hidden = !!(cfg?.hideCompleted && display?.status.isCompleted);
-			row.toggleClass("ffsi-hidden-completed", hidden);
+			const hidden = !!(
+				(cfg?.hideCompleted && display?.status.isCompleted) ||
+				(cfg?.hideCancelled && display?.status.isCancelled)
+			);
+			row.toggleClass("ffsi-hidden-status", hidden);
 			const rank = display
 				? display.statusSet.statuses.findIndex((s) => s.id === display.status.id)
 				: Number.POSITIVE_INFINITY;
@@ -429,7 +465,7 @@ export class ExplorerPatch {
 		// cloned (see the call site in processContainer()) — both set
 		// `display: none`, which would otherwise make the clone invisible too.
 		"ffsi-trunc-hidden",
-		"ffsi-hidden-completed",
+		"ffsi-hidden-status",
 	];
 
 	/**

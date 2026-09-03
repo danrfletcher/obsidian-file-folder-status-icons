@@ -4,7 +4,7 @@ A **status set** is a named, ordered list of statuses. Each status has:
 
 - A **label** — the text shown in the change-status popup and as the dot's tooltip.
 - A **color** — pick from a curated pastel palette, or use a fully custom color (see [Colors and the palette](#colors-and-the-palette) below).
-- Optionally, a **completed** flag (see [Completed statuses](#completed-statuses) below).
+- Optionally, a **completed** or **cancelled** flag (see [Completed statuses](#completed-statuses) and [Cancelled statuses](#cancelled-statuses) below) — a status is one or the other, not both.
 
 You can have as many status sets as you want, and reuse the same one across multiple folders, or give different folders their own. A `Client Work` folder might use *Red / Amber / Green*, while a `Reading List` folder next to it uses *To Read / Reading / Done* — they don't have to match.
 
@@ -24,9 +24,15 @@ To change it, click the **"..."** menu next to any status and choose **Make defa
 
 ## Completed statuses
 
-Click a status's **"..."** menu and choose **Mark as completed status** to flag it as "done" for that set — a set can have more than one completed status (e.g. both *Done* and *Cancelled*). Completed statuses show a **Completed** badge next to them in Settings.
+Click a status's **"..."** menu and choose **Mark as completed status** to flag it as "done" for that set — a set can have more than one completed status (e.g. both *Done* and *Merged*). Completed statuses show a **Completed** badge next to them in Settings.
 
-Completed statuses are what [Hide completed](folders.md#hide-completed) uses to decide what to hide from the tree per folder.
+Completed statuses are what the **Completed** toggle under [Hide](folders.md#hiding-completed-and-cancelled-items) uses to decide what to hide from the tree per folder.
+
+## Cancelled statuses
+
+Click a status's **"..."** menu and choose **Mark as cancelled status** to flag it as abandoned/won't-do for that set — a set can have more than one cancelled status (e.g. both *Cancelled* and *Duplicate*). Cancelled statuses show a **Cancelled** badge next to them in Settings. Marking a status cancelled clears its completed flag, and vice versa — a status is one or the other, not both.
+
+Cancelled statuses are what the **Cancelled** toggle under [Hide](folders.md#hiding-completed-and-cancelled-items) uses to decide what to hide from the tree per folder.
 
 ## Editing statuses
 
@@ -34,7 +40,7 @@ From **Settings → Status Sets**, each status set shows every status as a row w
 
 - **Add status** appends a new one to the end.
 - The **up/down arrows** reorder a status within its set.
-- The **"..."** menu offers **Make default** and **Mark/Unmark as completed status**.
+- The **"..."** menu offers **Make default**, **Mark/Unmark as completed status**, and **Mark/Unmark as cancelled status**.
 - The **trash icon** removes a status. Any folder defaulting to a removed status falls back to whatever is now first in the set; if the removed status was the set's default, the new first status becomes the default.
 - Renaming a status or changing its color updates every dot currently showing that status immediately.
 
