@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0
+
+- Fixed: a truncated status group's summary row (e.g. "3 Ideas") sat visibly
+  out of alignment with real rows below it — its dot didn't line up with
+  theirs, and its text rendered at a slightly larger font size. The summary
+  row is now built from a clone of a real row rather than from scratch, so it
+  automatically picks up the exact same indentation and font rules as
+  everything else in the tree.
+- **Folder assignments** in Settings now start **collapsed** by default, like
+  status sets — click the chevron to expand one you're working on.
+- Fixed: folder assignment cards could overlap their own controls, or hide
+  the folder's name entirely, in a narrow settings pane. Each toggle now gets
+  its own row (matching the rest of the settings tab), and any row that still
+  holds more than one toggle wraps between them instead of overlapping.
+- **Support section** at the bottom of Settings: buttons to report a bug (a
+  pre-filled GitHub issue form), request a feature (the GitHub Discussions
+  Ideas board), or buy the developer a coffee.
+
 ## 0.4.0
 
 - Fixed: renaming a folder that only *inherited* its status configuration

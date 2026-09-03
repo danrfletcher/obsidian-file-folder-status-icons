@@ -8,6 +8,11 @@ import { attachFolderPathAutocomplete } from "./pathAutocomplete";
 import { pluralizeStatusLabel } from "./explorerPatch";
 import { FolderConfig, StatusSet } from "./types";
 
+const REPO_URL = "https://github.com/danrfletcher/obsidian-file-folder-status-icons";
+const BUG_REPORT_URL = `${REPO_URL}/issues/new?template=bug_report.yml&labels=bug`;
+const FEATURE_REQUEST_URL = `${REPO_URL}/discussions/new?category=ideas`;
+const BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/danrfletcher";
+
 export class FFSISettingTab extends PluginSettingTab {
 	/**
 	 * Status sets take up a lot of vertical space once they have a few statuses,
@@ -15,6 +20,8 @@ export class FFSISettingTab extends PluginSettingTab {
 	 * Lives on the tab instance (not persisted) — collapsed again next reload.
 	 */
 	private expandedSetIds = new Set<string>();
+	/** Same idea as expandedSetIds, but for each folder assignment card. Keyed by folder path. */
+	private expandedFolderPaths = new Set<string>();
 	/** Same idea as expandedSetIds, but for each folder assignment's "Truncate statuses" sub-panel. Keyed by folder path. */
 	private expandedTruncationPaths = new Set<string>();
 
@@ -36,6 +43,7 @@ export class FFSISettingTab extends PluginSettingTab {
 		this.renderColorPalette(containerEl);
 		this.renderDesignSettings(containerEl);
 		this.renderFolderAssignments(containerEl);
+		this.renderSupportLinks(containerEl);
 	}
 
 	// ---------- Status sets ----------
@@ -265,12 +273,33 @@ export class FFSISettingTab extends PluginSettingTab {
 		for (const cfg of configs) {
 			const set = this.store.getStatusSet(cfg.statusSetId);
 			const card = containerEl.createDiv({ cls: "ffsi-folder-assignment" });
-			const setting = new Setting(card)
+			const isExpanded = this.expandedFolderPaths.has(cfg.path);
+
+			new Setting(card)
 				.setName(cfg.path === ROOT_PATH ? "/ (vault root)" : cfg.path)
-				.setDesc(set ? `Status set: ${set.name}` : "Status set no longer exists");
+				.setDesc(set ? `Status set: ${set.name}` : "Status set no longer exists")
+				.addExtraButton((btn) =>
+					btn
+						.setIcon(isExpanded ? "chevron-down" : "chevron-right")
+						.setTooltip(isExpanded ? "Collapse" : "Expand")
+						.onClick(() => {
+							if (isExpanded) this.expandedFolderPaths.delete(cfg.path);
+							else this.expandedFolderPaths.add(cfg.path);
+							this.display();
+						}),
+				)
+				.addExtraButton((btn) =>
+					btn.setIcon("trash").setTooltip("Disable statuses for this folder").onClick(() => {
+						this.store.disableFolder(cfg.path);
+						this.plugin.explorerPatch.refreshAll();
+						this.display();
+					}),
+				);
+
+			if (!isExpanded) continue;
 
 			if (allSets.length > 0) {
-				setting.addDropdown((dd) => {
+				new Setting(card).setName("Status set").addDropdown((dd) => {
 					for (const s of allSets) dd.addOption(s.id, s.name);
 					// Falls back to the first available set if this folder's own set was
 					// deleted out from under it — same "no longer exists" case as above.
@@ -285,65 +314,61 @@ export class FFSISettingTab extends PluginSettingTab {
 				});
 			}
 
-			setting.controlEl.createSpan({ cls: "ffsi-toggle-label", text: "Inherit to subfolders" });
-			setting.addToggle((toggle) =>
-				toggle
-					.setTooltip("Subfolders with no assignment of their own use this folder's status set")
-					.setValue(cfg.inheritToChildren)
-					.onChange((value) => {
+			new Setting(card)
+				.setName("Inherit to subfolders")
+				.setDesc("Subfolders with no assignment of their own use this folder's status set.")
+				.addToggle((toggle) =>
+					toggle.setValue(cfg.inheritToChildren).onChange((value) => {
 						this.store.updateFolderConfig(cfg.path, { inheritToChildren: value });
 						this.plugin.explorerPatch.refreshAll();
 					}),
-			);
+				);
 
-			setting.controlEl.createSpan({ cls: "ffsi-toggle-label", text: "Hide completed" });
-			setting.addToggle((toggle) =>
-				toggle
-					.setTooltip("Hide items whose status is marked completed from the tree")
-					.setValue(!!cfg.hideCompleted)
-					.onChange((value) => {
+			new Setting(card)
+				.setName("Hide completed")
+				.setDesc("Hide items whose status is marked completed from the tree.")
+				.addToggle((toggle) =>
+					toggle.setValue(!!cfg.hideCompleted).onChange((value) => {
 						this.store.updateFolderConfig(cfg.path, { hideCompleted: value });
 						this.plugin.explorerPatch.refreshAll();
 					}),
-			);
-
-			setting.addExtraButton((btn) =>
-				btn.setIcon("trash").setTooltip("Disable statuses for this folder").onClick(() => {
-					this.store.disableFolder(cfg.path);
-					this.plugin.explorerPatch.refreshAll();
-					this.display();
-				}),
-			);
+				);
 
 			const typeRow = new Setting(card)
+				.setClass("ffsi-multi-toggle-row")
 				.setName("Apply statuses to")
 				.setDesc(
 					"Turn either off to sort that type separately below the other, alphabetically, without status "
 						+ "icons — e.g. statuses only for files leaves files sorted by status above plain, unsorted folders.",
 				);
-			typeRow.controlEl.createSpan({ cls: "ffsi-toggle-label", text: "Files" });
-			typeRow.addToggle((toggle) =>
-				toggle
-					.setValue(cfg.applyToFiles !== false)
-					.onChange((value) => {
-						this.store.updateFolderConfig(cfg.path, { applyToFiles: value });
-						this.plugin.explorerPatch.refreshAll();
-					}),
-			);
-			typeRow.controlEl.createSpan({ cls: "ffsi-toggle-label", text: "Folders" });
-			typeRow.addToggle((toggle) =>
-				toggle
-					.setValue(cfg.applyToFolders !== false)
-					.onChange((value) => {
-						this.store.updateFolderConfig(cfg.path, { applyToFolders: value });
-						this.plugin.explorerPatch.refreshAll();
-					}),
-			);
+			this.addLabeledToggle(typeRow, "Files", cfg.applyToFiles !== false, (value) => {
+				this.store.updateFolderConfig(cfg.path, { applyToFiles: value });
+				this.plugin.explorerPatch.refreshAll();
+			});
+			this.addLabeledToggle(typeRow, "Folders", cfg.applyToFolders !== false, (value) => {
+				this.store.updateFolderConfig(cfg.path, { applyToFolders: value });
+				this.plugin.explorerPatch.refreshAll();
+			});
 
 			this.renderTruncationPanel(card, cfg, set);
 		}
 
 		this.renderAddFolderAssignment(containerEl);
+	}
+
+	/**
+	 * Adds a `label + toggle` pair to `setting`'s control area as one
+	 * non-wrapping unit — so a narrow settings pane wraps *between* pairs
+	 * (see `.ffsi-multi-toggle-row` in styles.css) instead of splitting a
+	 * label from its own toggle, or letting them overlap.
+	 */
+	private addLabeledToggle(setting: Setting, label: string, value: boolean, onChange: (value: boolean) => void): void {
+		const pair = setting.controlEl.createSpan({ cls: "ffsi-toggle-pair" });
+		pair.createSpan({ cls: "ffsi-toggle-label", text: label });
+		setting.addToggle((toggle) => {
+			toggle.setValue(value).onChange(onChange);
+			pair.appendChild(toggle.toggleEl);
+		});
 	}
 
 	/** Per-status "collapse 2+ into one summary row" toggles + custom label, for one folder assignment. */
@@ -450,6 +475,23 @@ export class FFSISettingTab extends PluginSettingTab {
 					this.display();
 				}),
 		);
+	}
+
+	// ---------- Support links ----------
+
+	private renderSupportLinks(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName("Support").setHeading();
+
+		const row = containerEl.createDiv({ cls: "ffsi-support-links" });
+
+		const bugBtn = row.createEl("button", { text: "Report a bug", cls: "ffsi-support-btn" });
+		bugBtn.addEventListener("click", () => window.open(BUG_REPORT_URL, "_blank"));
+
+		const featureBtn = row.createEl("button", { text: "Request a feature", cls: "ffsi-support-btn" });
+		featureBtn.addEventListener("click", () => window.open(FEATURE_REQUEST_URL, "_blank"));
+
+		const coffeeBtn = row.createEl("button", { text: "☕ Buy me a coffee", cls: "ffsi-support-btn ffsi-support-btn-coffee" });
+		coffeeBtn.addEventListener("click", () => window.open(BUY_ME_A_COFFEE_URL, "_blank"));
 	}
 
 	private getAllVaultFolderPaths(): string[] {

@@ -29,15 +29,19 @@ A row of swatches offered whenever you pick a status color, in addition to a ful
 
 ## Folder assignments
 
-Lists every folder that currently has statuses turned on:
+Lists every folder that currently has statuses turned on. Like status sets, each folder assignment starts **collapsed**, showing just its path, which status set governs it, and a chevron to expand it — click through for:
 
-- The folder's **path** (`/` for the vault root) and which **status set** governs it.
 - A **dropdown** to switch which status set governs the folder. Switching resets the folder's default status to the new set's own default; to change the default *within* the current set instead, right-click the folder in the file tree and choose **Change default status for this folder**.
-- **Inherit to subfolders** — a labeled toggle for whether its configuration is inherited by subfolders that don't have their own (on by default).
-- **Hide completed** — a labeled toggle to hide items whose status is marked completed from the tree entirely.
-- A **trash icon** to disable statuses for that folder (assignments are preserved, not deleted).
+- **Inherit to subfolders** — whether its configuration is inherited by subfolders that don't have their own (on by default).
+- **Hide completed** — hide items whose status is marked completed from the tree entirely.
 - **Apply statuses to** — separate **Files** and **Folders** toggles, both on by default. Turn either off to stop showing/sorting-by status for that type under this folder. See [Applying statuses to files vs. folders](reference/folders.md#applying-statuses-to-files-vs-folders).
 - **Truncate statuses** — a collapsible panel, one row per status in the folder's status set, each with a toggle and a text field for a custom summary label. See [Truncating large groups](reference/folders.md#truncating-large-groups).
+
+The **trash icon** in the collapsed header disables statuses for that folder (assignments are preserved, not deleted).
+
+## Support
+
+Buttons to report a bug (opens a pre-filled GitHub issue form), request a feature (opens the GitHub Discussions Ideas board), or buy the developer a coffee.
 
 ## Assign a folder
 

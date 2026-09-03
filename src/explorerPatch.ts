@@ -363,7 +363,7 @@ export class ExplorerPatch {
 					const status = set?.statuses.find((s) => s.id === statusId);
 					const rule = cfg?.truncatedStatuses?.[statusId as string];
 					if (status && rule) {
-						const groupEl = this.buildGroupRow(container, status, rule, countByStatus.get(statusId as string) ?? 0, groupKey);
+						const groupEl = this.buildGroupRow(info.el, status, rule, countByStatus.get(statusId as string) ?? 0, groupKey);
 						container.insertBefore(groupEl, info.el);
 						ranked.push({ el: groupEl, path: groupKey, rank: info.rank, name: "" });
 					}
@@ -381,24 +381,50 @@ export class ExplorerPatch {
 		}
 	}
 
-	/** Builds the collapsed "N Label" summary row standing in for a truncated status group; click anywhere on it to expand. */
-	private buildGroupRow(container: HTMLElement, status: StatusDefinition, rule: TruncationRule, count: number, groupKey: string): HTMLElement {
-		// createDiv() appends to `container` immediately; the caller repositions
-		// it with insertBefore right after this returns.
-		const row = container.createDiv({ cls: GROUP_ROW_CLASS });
-		const titleEl = row.createDiv({ cls: "nav-file-title ffsi-trunc-title" });
-		const dot = titleEl.createSpan({ cls: "ffsi-trunc-dot" });
-		dot.setCssStyles({ backgroundColor: status.color, color: status.color });
-		const labelText = rule.label.trim() || pluralizeStatusLabel(status.label);
-		titleEl.createSpan({ cls: "ffsi-trunc-text", text: `${count} ${labelText}` });
-		row.setAttribute("aria-label", `Show ${count} ${labelText}`);
-		row.setAttribute("role", "button");
-		row.addEventListener("click", (evt) => {
-			evt.preventDefault();
-			evt.stopPropagation();
-			this.expandedGroups.add(groupKey);
-			this.refreshAll();
-		});
+	/**
+	 * Builds the collapsed "N Label" summary row standing in for a truncated
+	 * status group; click anywhere on it to expand.
+	 *
+	 * Cloned from `templateEl` — a real row Obsidian rendered for one of the
+	 * group's members — rather than built from scratch. A from-scratch
+	 * `.nav-file-title` div doesn't automatically inherit every ancestor-scoped
+	 * rule (indentation, font-size, …) that a genuine row picks up from its
+	 * real place in Obsidian's own DOM/CSS, which previously left the summary
+	 * row's dot and text visibly out of alignment with real rows below it.
+	 * Cloning sidesteps needing to know or replicate any of that.
+	 */
+	private buildGroupRow(templateEl: HTMLElement, status: StatusDefinition, rule: TruncationRule, count: number, groupKey: string): HTMLElement {
+		const wasFolder = templateEl.hasClass("nav-folder");
+		const row = templateEl.cloneNode(true) as HTMLElement;
+		// Reset to bare canonical classes — drops any transient state the
+		// template happened to carry (selection, drag, rename-in-progress, …)
+		// while keeping whatever CSS those classes provide.
+		row.className = `${wasFolder ? "nav-folder" : "nav-file"} ${GROUP_ROW_CLASS}`;
+		// A cloned folder row would otherwise drag along its entire rendered
+		// subtree (if it happened to be expanded) as an inert, orphaned copy.
+		row.querySelectorAll(".nav-folder-children").forEach((el) => el.remove());
+
+		const titleEl = row.querySelector<HTMLElement>(":scope > .nav-file-title, :scope > .nav-folder-title");
+		if (titleEl) {
+			titleEl.className = `${wasFolder ? "nav-folder-title" : "nav-file-title"} ffsi-trunc-title`;
+			titleEl.removeAttribute("data-path");
+			titleEl.empty();
+			const dot = titleEl.createSpan({ cls: "ffsi-trunc-dot" });
+			dot.setCssStyles({ backgroundColor: status.color, color: status.color });
+			// `.nav-file-title-content` (not just our own class) so the label
+			// inherits the exact same font rules real item titles get, on top of
+			// which our own class layers the faded/muted look.
+			const labelText = rule.label.trim() || pluralizeStatusLabel(status.label);
+			titleEl.createSpan({ cls: "nav-file-title-content ffsi-trunc-text", text: `${count} ${labelText}` });
+			titleEl.setAttribute("aria-label", `Show ${count} ${labelText}`);
+			titleEl.setAttribute("role", "button");
+			titleEl.addEventListener("click", (evt) => {
+				evt.preventDefault();
+				evt.stopPropagation();
+				this.expandedGroups.add(groupKey);
+				this.refreshAll();
+			});
+		}
 		return row;
 	}
 
