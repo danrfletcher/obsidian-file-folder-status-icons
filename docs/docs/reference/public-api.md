@@ -7,7 +7,7 @@ status-change popup.
 !!! warning "Unstable"
     This is a young, hand-rolled contract — no semver package, no
     deprecation window. It exists specifically to support the companion
-    [Checklist Status Icons](https://danrfletcher.github.io/obsidian-checklist-status-icons/)
+    [Checklist Status Sets](https://danrfletcher.github.io/obsidian-checklist-status-icons/)
     plugin. Check `apiVersion` if you need to guard against future breaking
     changes, and expect it to grow rather than shrink.
 
