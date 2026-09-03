@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.2
+
+- Fixed: clicking a truncated status group's summary row (or an expanded
+  member's dot to collapse it again) still didn't work for some users even
+  after 0.5.1's fix, despite the row now rendering correctly. Root cause:
+  every interaction in this plugin was driven by the browser's `click`/
+  `dblclick` events, which are synthesized on top of the lower-level
+  `mousedown`/`mouseup` pair — and at least one real combination of input
+  method and Electron/Chromium build reliably delivers mousedown and mouseup
+  perfectly while never synthesizing `click` at all. Every interaction
+  (status dots, truncation summary rows, double-click-to-collapse) is now
+  driven directly off `mousedown`, with double-click detected manually by
+  timing two mousedowns on the same dot, rather than depending on `click`/
+  `dblclick` ever firing.
+
 ## 0.5.1
 
 - Fixed: clicking a truncated status group's summary row (e.g. "3 Ideas") did
