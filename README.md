@@ -1,9 +1,9 @@
-# File and Folder Status Icons
+# Status Sets
 
 📖 **[Full documentation](https://danrfletcher.github.io/obsidian-file-folder-status-icons/)**
 
-Traffic-light style status icons for files and folders in Obsidian's file
-tree — think ClickUp's status pills, applied to your vault structure.
+Reusable status sets — think ClickUp's status pills — applied to files and
+folders in Obsidian's file tree as traffic-light style icons.
 
 ![Screenshot](images/screenshot.png)
 
@@ -46,8 +46,8 @@ tree — think ClickUp's status pills, applied to your vault structure.
 
 ## Usage
 
-1. Open **Settings → File and Folder Status Icons** and create a status set
-   (e.g. "Not started" / "In progress" / "Done") with a color for each.
+1. Open **Settings → Status Sets** and create a status set (e.g. "Not
+   started" / "In progress" / "Done") with a color for each.
 2. Right-click a folder in the file explorer → **Enable statuses for this
    folder** → pick the status set and a default status.
 3. Click any status dot in the tree to change that item's status.
@@ -59,8 +59,8 @@ tree — think ClickUp's status pills, applied to your vault structure.
 
 ### From Obsidian
 
-Settings → Community plugins → Browse → search "File and Folder Status
-Icons" → Install → Enable.
+Settings → Community plugins → Browse → search "Status Sets" → Install →
+Enable.
 
 ### Manually
 

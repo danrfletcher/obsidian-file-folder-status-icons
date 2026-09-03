@@ -2,7 +2,7 @@
 
 ## I enabled a folder but I don't see any dots
 
-Check that the status set you picked actually has statuses defined — a set with zero statuses enables cleanly but has nothing to show. Add at least one status in **Settings → File and Folder Status Icons**, then reopen the folder (collapse and re-expand it if it doesn't refresh immediately).
+Check that the status set you picked actually has statuses defined — a set with zero statuses enables cleanly but has nothing to show. Add at least one status in **Settings → Status Sets**, then reopen the folder (collapse and re-expand it if it doesn't refresh immediately).
 
 ## A subfolder isn't showing dots even though its parent is enabled
 

@@ -1,6 +1,6 @@
 # Overview
 
-**File and Folder Status Icons** brings ClickUp-style statuses to your Obsidian file tree. Define statuses like *Not Started*, *In Progress*, and *Done* — each with its own color — and assign them to files and folders right in the sidebar. No more guessing what's finished just from a filename.
+**Status Sets** brings ClickUp-style statuses to your Obsidian file tree. Define statuses like *Not Started*, *In Progress*, and *Done* — each with its own color — and assign them to files and folders right in the sidebar. No more guessing what's finished just from a filename.
 
 ![A folder of projects with red, amber, and green status dots, grouped by status](assets/hero.png)
 

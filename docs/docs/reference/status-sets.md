@@ -30,7 +30,7 @@ Completed statuses are what [Hide completed](folders.md#hide-completed) uses to 
 
 ## Editing statuses
 
-From **Settings → File and Folder Status Icons**, each status set shows every status as a row with its color swatch and label, editable in place:
+From **Settings → Status Sets**, each status set shows every status as a row with its color swatch and label, editable in place:
 
 - **Add status** appends a new one to the end.
 - The **up/down arrows** reorder a status within its set.

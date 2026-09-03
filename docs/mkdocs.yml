@@ -1,5 +1,5 @@
-site_name: File and Folder Status Icons
-site_description: ClickUp-style status pills for files and folders in Obsidian's file tree — custom statuses and colors, per-folder defaults, and persistent group-by-status sorting.
+site_name: Status Sets
+site_description: Reusable, ClickUp-style status pills applied to files and folders in Obsidian's file tree — custom statuses and colors, per-folder defaults, and persistent group-by-status sorting.
 site_url: https://danrfletcher.github.io/obsidian-file-folder-status-icons/
 repo_url: https://github.com/danrfletcher/obsidian-file-folder-status-icons
 repo_name: danrfletcher/obsidian-file-folder-status-icons
