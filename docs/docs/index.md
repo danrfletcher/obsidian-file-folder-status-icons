@@ -29,3 +29,6 @@ Nothing here touches your notes' content or frontmatter. Statuses live entirely 
 - Want the full picture on statuses and colors? See [Status Sets and Colors](reference/status-sets.md).
 - Curious how a folder's default status and inheritance work? See [Assigning Folders and Defaults](reference/folders.md).
 - Something not behaving as expected? Check the [FAQ and Troubleshooting](faq.md).
+- Want the same statuses on **checklist items inside your notes**, not just
+  the file tree? See the companion
+  [Checklist Status Icons](https://danrfletcher.github.io/obsidian-checklist-status-icons/) plugin.
