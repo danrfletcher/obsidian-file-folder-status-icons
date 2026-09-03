@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.1
+
+- Fixed: renaming a folder that had a status set assigned to it could lose
+  the assignment — along with every file and subfolder's status inside it —
+  and leave the app slow to reopen the vault afterwards. Root cause:
+  Obsidian's vault watcher doesn't always deliver a folder rename as a single
+  event; a rename that didn't originate from Obsidian's own file explorer
+  (an external tool, a sync client, the OS file manager) instead arrives as
+  the old folder and everything in it being deleted, followed separately by
+  the new one being created, with nothing linking the two. Deletes are now
+  held briefly and checked against what was just created before being
+  applied, so a rename recognized this way keeps its assignment; a genuine
+  deletion is unaffected.
+
 ## 0.6.0
 
 - Added: cancelled statuses. Any status can be marked "cancelled" from its
