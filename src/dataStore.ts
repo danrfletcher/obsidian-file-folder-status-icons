@@ -4,6 +4,19 @@ import { ROOT_PATH, parentPath, rewritePathOnRename } from "./pathUtils";
 import { generateId } from "./colorUtils";
 
 /**
+ * How long a "delete" is held back waiting for the rest of its batch (see
+ * DataStore#handleDelete) before it's treated as a real deletion.
+ */
+const DELETE_BATCH_WINDOW_MS = 500;
+/**
+ * How long a "create" stays eligible to be matched against a later delete
+ * batch as the other half of a rename (see DataStore#flushPendingDeletes).
+ * Wider than the delete window since creates for a rename's new subtree are
+ * observed to land *before* the matching deletes for the old one.
+ */
+const RECENT_CREATE_WINDOW_MS = 2000;
+
+/**
  * Owns all persisted plugin state (data.json) and the query logic that maps
  * a file/folder path to the status it should display. Nothing here ever
  * touches note content or frontmatter.
@@ -11,6 +24,14 @@ import { generateId } from "./colorUtils";
 export class DataStore {
 	private data: PluginData = createEmptyPluginData();
 	private saveQueued = false;
+
+	/** Paths deleted since the last flush, with the time each delete was seen. */
+	private pendingDeletes: Map<string, number> = new Map();
+	/** Subset of pendingDeletes' keys that are folders — see handleDelete. */
+	private pendingDeletedFolders: Set<string> = new Set();
+	private deleteFlushHandle: ReturnType<typeof setTimeout> | null = null;
+	/** Paths created recently — see recordCreate. */
+	private recentCreates: Map<string, { time: number; isFolder: boolean }> = new Map();
 
 	constructor(private plugin: Plugin) {}
 
@@ -379,7 +400,130 @@ export class DataStore {
 		if (changed) this.requestSave();
 	}
 
-	handleDelete(path: string): void {
+	/**
+	 * Records a "create" so a delete batch arriving shortly after (see
+	 * handleDelete) can recognize it as the other half of a rename rather than
+	 * an unrelated new file. Cheap to call unconditionally — most creates are
+	 * never looked at again and just age out of the window.
+	 */
+	recordCreate(path: string, isFolder: boolean): void {
+		this.recentCreates.set(path, { time: Date.now(), isFolder });
+		this.pruneRecentCreates();
+	}
+
+	private pruneRecentCreates(): void {
+		const cutoff = Date.now() - RECENT_CREATE_WINDOW_MS;
+		for (const [path, entry] of this.recentCreates) {
+			if (entry.time < cutoff) this.recentCreates.delete(path);
+		}
+	}
+
+	/**
+	 * A folder rename/move that didn't originate from Obsidian's own file
+	 * explorer — an external tool, a sync client, the OS file manager, and
+	 * occasionally an in-app move too — doesn't always reach the vault's
+	 * "rename" event. What arrives instead is the old subtree deleted (one
+	 * event per file/folder in it) and the new subtree created, with nothing
+	 * tying the two together. Applied at face value, that reads as the folder
+	 * being deleted — permanently discarding its status-set assignment, its
+	 * children's statuses, everything — the moment the rename lands.
+	 *
+	 * So deletes are batched for a short window instead of applied immediately.
+	 * Once the batch settles, a deleted *folder* this plugin actually has data
+	 * for is checked against recent creates for one whose subtree exactly
+	 * matches (same relative layout, just a different path prefix, and itself
+	 * a folder too) and reattached via the same handleRename path a clean
+	 * rename event would have taken; everything left over is a real deletion.
+	 *
+	 * Reconciliation is deliberately scoped to folders with tracked data
+	 * rather than every deleted path: a lone deleted file only ever produces
+	 * a single-element suffix set (just itself), which would trivially
+	 * "match" against *any* unrelated file created in the same window — there's
+	 * no layout left to actually confirm the two are related.
+	 */
+	handleDelete(path: string, isFolder: boolean): void {
+		this.pendingDeletes.set(path, Date.now());
+		if (isFolder) this.pendingDeletedFolders.add(path);
+		if (this.deleteFlushHandle !== null) return;
+		this.deleteFlushHandle = setTimeout(() => this.flushPendingDeletes(), DELETE_BATCH_WINDOW_MS);
+	}
+
+	private flushPendingDeletes(): void {
+		this.deleteFlushHandle = null;
+		const deletedPaths = Array.from(this.pendingDeletes.keys());
+		const deletedFolders = this.pendingDeletedFolders;
+		this.pendingDeletes.clear();
+		this.pendingDeletedFolders = new Set();
+		this.pruneRecentCreates();
+
+		const deletedSet = new Set(deletedPaths);
+		const reattached = new Set<string>();
+
+		// Only a path whose parent *wasn't itself deleted in this batch* can be
+		// the root of a rename — everything below it is just along for the ride
+		// and gets swept up via the same rewritePathOnRename pass handleRename
+		// already does for a clean rename event.
+		for (const oldTop of deletedPaths) {
+			if (!deletedFolders.has(oldTop)) continue;
+			if (deletedSet.has(parentPath(oldTop))) continue;
+			if (!this.hasTrackedData(oldTop)) continue;
+
+			const suffixes = deletedPaths
+				.filter((p) => p === oldTop || p.startsWith(oldTop + "/"))
+				.map((p) => p.slice(oldTop.length));
+			const newTop = this.findRenameTarget(suffixes);
+			if (!newTop) continue;
+
+			this.handleRename(oldTop, newTop);
+			for (const suffix of suffixes) {
+				reattached.add(oldTop + suffix);
+				this.recentCreates.delete(newTop + suffix);
+			}
+		}
+
+		for (const path of deletedPaths) {
+			if (!reattached.has(path)) this.applyDelete(path);
+		}
+	}
+
+	/** Flushes any batched deletes immediately and drops the timer — call on unload so a stray callback doesn't fire against a plugin that's gone. */
+	dispose(): void {
+		if (this.deleteFlushHandle === null) return;
+		clearTimeout(this.deleteFlushHandle);
+		this.flushPendingDeletes();
+	}
+
+	/** Whether `folderPath` itself, or anything nested under it, has a stored config or status. */
+	private hasTrackedData(folderPath: string): boolean {
+		if (this.data.folderConfigs[folderPath]) return true;
+		const prefix = folderPath + "/";
+		for (const path of Object.keys(this.data.folderConfigs)) {
+			if (path.startsWith(prefix)) return true;
+		}
+		for (const path of Object.keys(this.data.itemStatuses)) {
+			if (path === folderPath || path.startsWith(prefix)) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Finds a recently-created *folder* whose subtree layout exactly matches
+	 * `suffixes` (the relative paths — "" for the root itself, "/child", … —
+	 * collected from a deleted subtree), i.e. every one of those suffixes was
+	 * also just created under some other common path. That path is the likely
+	 * rename target; null if nothing recent matches the whole set.
+	 */
+	private findRenameTarget(suffixes: string[]): string | null {
+		for (const [candidateTop, entry] of this.recentCreates) {
+			if (!entry.isFolder) continue;
+			if (suffixes.every((suffix) => this.recentCreates.has(candidateTop + suffix))) {
+				return candidateTop;
+			}
+		}
+		return null;
+	}
+
+	private applyDelete(path: string): void {
 		let changed = false;
 		if (this.data.folderConfigs[path]) {
 			delete this.data.folderConfigs[path];

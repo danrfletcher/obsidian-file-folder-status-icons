@@ -47,10 +47,23 @@ export default class FileFolderStatusIconsPlugin extends Plugin {
 		);
 		this.registerEvent(
 			this.app.vault.on("delete", (file: TAbstractFile) => {
-				this.store.handleDelete(file.path);
+				this.store.handleDelete(file.path, file instanceof TFolder);
 			}),
 		);
-		this.registerEvent(this.app.vault.on("create", () => this.explorerPatch.refreshAll()));
+		this.registerEvent(
+			this.app.vault.on("create", (file: TAbstractFile) => {
+				// Some renames/moves — always for anything triggered outside Obsidian's
+				// own file explorer (an external tool, a sync client, the OS file
+				// manager), and occasionally even from in-app moves — don't reach us as
+				// a single "rename" event at all. Instead the vault watcher reports the
+				// old subtree as a burst of "delete"s and the new one as a burst of
+				// "create"s with no link between them. recordCreate lets handleDelete's
+				// batching recognize that pattern and reattach the config instead of
+				// discarding it — see DataStore#flushPendingDeletes.
+				this.store.recordCreate(file.path, file instanceof TFolder);
+				this.explorerPatch.refreshAll();
+			}),
+		);
 
 		// The file explorer leaf may not exist yet on first install; wait for the
 		// workspace to finish its initial layout before attaching the observer.
@@ -59,5 +72,6 @@ export default class FileFolderStatusIconsPlugin extends Plugin {
 
 	onunload(): void {
 		this.explorerPatch?.disable();
+		this.store?.dispose();
 	}
 }
