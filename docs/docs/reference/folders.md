@@ -44,7 +44,7 @@ By default the summary text is the status's own label, pluralized (`Idea` → `I
 **Opening and closing a group:**
 
 - Click the summary row (its dot or its text) to expand it back into the individual items, sorted in their normal position.
-- Double-click any item's status dot while its group is expanded to collapse it again.
+- Double-click any item's status dot while its group is expanded to collapse it again — always a double left-click, regardless of the **Open change status menu** setting (see [Settings → Behaviour](../settings.md#behaviour)).
 
 Truncation is evaluated per folder — the same status can be truncated in one folder and shown in full in another, and it only ever groups a folder's own direct children, never items from subfolders.
 

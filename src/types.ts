@@ -63,6 +63,12 @@ export interface FolderConfig {
 	truncatedStatuses?: Record<string, TruncationRule>;
 }
 
+/**
+ * How the user must click a status dot in the file tree to open the change-status
+ * popup. Defaults to "left" (a plain click) to match pre-existing behavior.
+ */
+export type StatusMenuTrigger = "left" | "right" | "long" | "double";
+
 export interface PluginData {
 	dataVersion: 1;
 	statusSets: Record<string, StatusSet>;
@@ -74,6 +80,8 @@ export interface PluginData {
 	colorPalette: string[];
 	/** Neon glow around status dots in the file tree. Purely cosmetic, off by default. */
 	glowEnabled?: boolean;
+	/** See StatusMenuTrigger. Defaults to "left" when unset. */
+	statusMenuTrigger?: StatusMenuTrigger;
 }
 
 export interface ResolvedDisplay {
@@ -102,5 +110,6 @@ export function createEmptyPluginData(): PluginData {
 		itemStatuses: {},
 		colorPalette: [...DEFAULT_COLOR_PALETTE],
 		glowEnabled: false,
+		statusMenuTrigger: "left",
 	};
 }

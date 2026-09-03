@@ -19,7 +19,12 @@ folders in Obsidian's file tree as traffic-light style icons.
   You can also assign folders directly from Settings.
 - **Click a dot to change it.** Click any status icon to open a small
   popup, with a curated pastel color palette plus a fully custom color
-  picker, and re-assign that file or folder's status.
+  picker, and re-assign that file or folder's status. Clicking the icon
+  never opens the file or expands the folder — only clicking its name does
+  that.
+- **Choose how the popup opens.** Settings → Behaviour → *Open change
+  status menu* — left click (default), right click, long click (press and
+  hold), or double click.
 - **Group by status.** Enabled folders automatically sort their contents by
   status, and that order persists across restarts — even if a folder
   relying on an ancestor's settings gets moved elsewhere.

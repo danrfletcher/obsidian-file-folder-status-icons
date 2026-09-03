@@ -27,6 +27,10 @@ A row of swatches offered whenever you pick a status color, in addition to a ful
 
 - **Glow** — adds an optional neon glow around status dots in the file tree, colored to match each dot's status. Purely cosmetic: the dot itself stays exactly the same size, so it never grows taller than the text next to it.
 
+## Behaviour
+
+- **Open change status menu** — how you click a status dot in the file tree to open the change-status popup: **Left click** (default), **Right click**, **Long click** (press and hold), or **Double click**. Whichever mode is set, clicking the file or folder's *name* still opens/expands it as normal — only the dot's own click is affected.
+
 ## Folder assignments
 
 Lists every folder that currently has statuses turned on. Like status sets, each folder assignment starts **collapsed**, showing just its path, which status set governs it, and a chevron to expand it — click through for:

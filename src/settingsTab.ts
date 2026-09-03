@@ -6,7 +6,7 @@ import { normalizeHexColor } from "./colorUtils";
 import { ChoiceItem, openChoicePopup, openColorPickerPopup } from "./statusPopup";
 import { attachFolderPathAutocomplete } from "./pathAutocomplete";
 import { pluralizeStatusLabel } from "./explorerPatch";
-import { FolderConfig, StatusSet } from "./types";
+import { FolderConfig, StatusMenuTrigger, StatusSet } from "./types";
 
 const REPO_URL = "https://github.com/danrfletcher/obsidian-file-folder-status-icons";
 const BUG_REPORT_URL = `${REPO_URL}/issues/new?template=bug_report.yml&labels=bug`;
@@ -48,6 +48,7 @@ export class FFSISettingTab extends PluginSettingTab {
 		this.renderStatusSets(containerEl);
 		this.renderColorPalette(containerEl);
 		this.renderDesignSettings(containerEl);
+		this.renderBehaviourSettings(containerEl);
 		this.renderFolderAssignments(containerEl);
 		this.renderSupportLinks(containerEl);
 
@@ -267,6 +268,30 @@ export class FFSISettingTab extends PluginSettingTab {
 					this.store.setGlowEnabled(value);
 					this.plugin.explorerPatch.refreshAll();
 				}),
+			);
+	}
+
+	// ---------- Behaviour ----------
+
+	private renderBehaviourSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl).setName("Behaviour").setHeading();
+
+		new Setting(containerEl)
+			.setName("Open change status menu")
+			.setDesc(
+				"How to click a status icon in the file tree to open the change-status menu. Clicking the "
+					+ "file or folder name always opens/expands it as normal, regardless of this setting.",
+			)
+			.addDropdown((dd) =>
+				dd
+					.addOption("left", "Left click")
+					.addOption("right", "Right click")
+					.addOption("long", "Long click")
+					.addOption("double", "Double click")
+					.setValue(this.store.getStatusMenuTrigger())
+					.onChange((value) => {
+						this.store.setStatusMenuTrigger(value as StatusMenuTrigger);
+					}),
 			);
 	}
 

@@ -28,8 +28,12 @@ const GROUP_SUMMARY_ATTR = "data-ffsi-trunc-summary";
  * double-click, and how long a single one waits before acting (in case a
  * second follows) — see attachDotInterceptor() for why this is driven off
  * mousedown/manual timing rather than the native `click`/`dblclick` events.
+ * Also used to detect double-click when that's the configured status-menu
+ * trigger (see DataStore#getStatusMenuTrigger) on an *ungrouped* dot.
  */
 const DOUBLE_CLICK_MS = 400;
+/** How long a left mousedown on a dot must be held for "Long click" mode to open the status popup. */
+const LONG_PRESS_MS = 500;
 
 /**
  * `MenuItem.setSubmenu(): Menu` exists at runtime but isn't declared in
@@ -54,15 +58,16 @@ export class ExplorerPatch {
 	private observer: MutationObserver | null = null;
 	private dirtyContainers = new Set<HTMLElement>();
 	private rafHandle: number | null = null;
-	// One delegated, capturing mousedown listener per window rather than a
-	// listener per dot — see attachDotInterceptor() for why this has to be
-	// window-level (capture) rather than an ordinary listener on each dot,
-	// and why mousedown rather than click.
-	private dotMouseDownListeners = new Map<Window, (evt: MouseEvent) => void>();
+	// One delegated, capturing listener per window per event type rather than
+	// a listener per dot — see attachDotInterceptor() for why this has to be
+	// window-level (capture) rather than an ordinary listener on each dot.
+	private dotWindowListeners = new Map<Window, { type: string; fn: (evt: Event) => void }[]>();
 	/** Pending (delayed) single-click handlers for truncation-group members, keyed by dot element — see attachDotInterceptor(). */
 	private pendingDotActions = new Map<HTMLElement, number>();
 	/** Timestamp of the last mousedown on each dot, for manual double-click detection — see attachDotInterceptor(). */
 	private lastDotMouseDown = new Map<HTMLElement, number>();
+	/** Cleanup functions for an in-progress "Long click" hold on a dot, keyed by dot element — see beginLongPress(). */
+	private pendingLongPress = new Map<HTMLElement, () => void>();
 	/** Truncation groups the user has expanded, keyed by `${folderPath} ${statusId}`. Not persisted — collapsed again on reload. */
 	private expandedGroups = new Set<string>();
 
@@ -83,15 +88,17 @@ export class ExplorerPatch {
 			window.cancelAnimationFrame(this.rafHandle);
 			this.rafHandle = null;
 		}
-		for (const [win, listener] of this.dotMouseDownListeners) {
-			win.removeEventListener("mousedown", listener, true);
+		for (const [win, listeners] of this.dotWindowListeners) {
+			for (const { type, fn } of listeners) win.removeEventListener(type, fn, true);
 		}
-		this.dotMouseDownListeners.clear();
+		this.dotWindowListeners.clear();
 		for (const [dot, handle] of this.pendingDotActions) {
 			dot.win.clearTimeout(handle);
 		}
 		this.pendingDotActions.clear();
 		this.lastDotMouseDown.clear();
+		for (const cleanup of this.pendingLongPress.values()) cleanup();
+		this.pendingLongPress.clear();
 		this.expandedGroups.clear();
 		document.querySelectorAll(`.${DOT_CLASS}, .${GROUP_ROW_CLASS}`).forEach((el) => el.remove());
 		// Belt-and-suspenders: a popup or menu-anchor left open at unload time
@@ -269,28 +276,31 @@ export class ExplorerPatch {
 	 */
 	private attachDotInterceptor(explorerRoot: HTMLElement): void {
 		const win = explorerRoot.win;
-		if (this.dotMouseDownListeners.has(win)) return;
-		const listener = (evt: MouseEvent) => {
-			if (evt.button !== 0) return; // left button only — don't hijack right-click's context menu
+		if (this.dotWindowListeners.has(win)) return;
+
+		const mousedownListener = (evt: MouseEvent) => {
 			const target = evt.target;
 			if (!(target instanceof HTMLElement)) return;
 			// A collapsed truncation group's summary row — mousedown on its dot
-			// *or* its text (anywhere within the title) to expand.
-			const summaryEl = target.closest<HTMLElement>(`[${GROUP_SUMMARY_ATTR}]`);
-			if (summaryEl) {
-				evt.preventDefault();
-				evt.stopImmediatePropagation();
-				const groupKey = summaryEl.getAttribute(GROUP_SUMMARY_ATTR);
-				if (groupKey) {
-					this.expandedGroups.add(groupKey);
-					this.refreshAll();
+			// *or* its text (anywhere within the title) to expand. Always a
+			// plain left click, independent of the status-menu trigger setting
+			// handled below — this expands a group, it doesn't open the
+			// change-status popup.
+			if (evt.button === 0) {
+				const summaryEl = target.closest<HTMLElement>(`[${GROUP_SUMMARY_ATTR}]`);
+				if (summaryEl) {
+					evt.preventDefault();
+					evt.stopImmediatePropagation();
+					const groupKey = summaryEl.getAttribute(GROUP_SUMMARY_ATTR);
+					if (groupKey) {
+						this.expandedGroups.add(groupKey);
+						this.refreshAll();
+					}
+					return;
 				}
-				return;
 			}
 			const dot = target.closest<HTMLElement>(`.${DOT_CLASS}`);
 			if (!dot) return;
-			evt.preventDefault();
-			evt.stopImmediatePropagation();
 			// Read data-path fresh at mousedown time rather than caching it —
 			// Obsidian can finish setting data-path slightly after the row is
 			// first mounted.
@@ -298,37 +308,185 @@ export class ExplorerPatch {
 			const raw = titleEl?.getAttribute("data-path") ?? "";
 			const path = raw === "/" ? ROOT_PATH : raw;
 			const groupKey = dot.getAttribute(GROUP_MEMBER_ATTR);
-			if (groupKey) {
-				// This dot belongs to an expanded truncation group — a second
-				// mousedown within DOUBLE_CLICK_MS collapses the group; otherwise
-				// hold off opening the status popup for that same window, in case
-				// one follows.
+
+			// This dot belongs to an expanded truncation group — a second
+			// left mousedown within DOUBLE_CLICK_MS always collapses it,
+			// regardless of the configured status-menu trigger below (that
+			// setting only governs *opening* the popup; collapsing a group is
+			// a separate, pre-existing affordance). If this isn't a repeat
+			// click, fall through to the trigger handling underneath.
+			if (evt.button === 0 && groupKey) {
 				const now = Date.now();
 				const lastDown = this.lastDotMouseDown.get(dot);
 				this.lastDotMouseDown.set(dot, now);
-				const pending = this.pendingDotActions.get(dot);
-				if (pending !== undefined) {
-					win.clearTimeout(pending);
-					this.pendingDotActions.delete(dot);
-				}
 				if (lastDown !== undefined && now - lastDown < DOUBLE_CLICK_MS) {
+					evt.preventDefault();
+					evt.stopImmediatePropagation();
 					this.lastDotMouseDown.delete(dot);
+					this.cancelPendingDotAction(dot);
 					this.expandedGroups.delete(groupKey);
 					this.refreshAll();
 					return;
 				}
-				const handle = win.setTimeout(() => {
-					this.pendingDotActions.delete(dot);
-					this.lastDotMouseDown.delete(dot);
-					this.onDotClick(dot, path);
-				}, DOUBLE_CLICK_MS);
-				this.pendingDotActions.set(dot, handle);
+			}
+
+			this.handleDotTrigger(evt, dot, path, groupKey);
+		};
+
+		const swallowListener = (evt: MouseEvent) => {
+			// Obsidian (and other plugins, e.g. Folder Notes) open a file or
+			// expand/collapse a folder off a `click` event, which the browser
+			// dispatches after mouseup independently of whatever
+			// mousedownListener above did — preventDefault()/
+			// stopImmediatePropagation() on mousedown does NOT stop a later
+			// `click` from firing. Swallow it here too so clicking (or
+			// double-clicking) the dot never opens/expands the row underneath
+			// it, in every trigger mode — only clicking the name/text should.
+			const target = evt.target;
+			if (!(target instanceof HTMLElement)) return;
+			if (target.closest(`.${DOT_CLASS}`) || target.closest(`[${GROUP_SUMMARY_ATTR}]`)) {
+				evt.preventDefault();
+				evt.stopImmediatePropagation();
+			}
+		};
+
+		const contextMenuListener = (evt: MouseEvent) => {
+			// Only relevant in "Right click" trigger mode — suppresses the
+			// native file/folder context menu when it's the dot itself that
+			// was right-clicked, since that click now opens the status popup
+			// instead. Right-clicking elsewhere on the row is untouched.
+			if (this.store.getStatusMenuTrigger() !== "right") return;
+			const target = evt.target;
+			if (!(target instanceof HTMLElement)) return;
+			if (target.closest(`.${DOT_CLASS}`)) {
+				evt.preventDefault();
+				evt.stopImmediatePropagation();
+			}
+		};
+
+		win.addEventListener("mousedown", mousedownListener, true);
+		win.addEventListener("click", swallowListener, true);
+		win.addEventListener("dblclick", swallowListener, true);
+		win.addEventListener("contextmenu", contextMenuListener, true);
+		this.dotWindowListeners.set(win, [
+			{ type: "mousedown", fn: mousedownListener as (evt: Event) => void },
+			{ type: "click", fn: swallowListener as (evt: Event) => void },
+			{ type: "dblclick", fn: swallowListener as (evt: Event) => void },
+			{ type: "contextmenu", fn: contextMenuListener as (evt: Event) => void },
+		]);
+	}
+
+	/**
+	 * Decides whether this mousedown on a dot should open the change-status
+	 * popup, per the "Open change status menu" Behaviour setting (see
+	 * DataStore#getStatusMenuTrigger). Only reached once the truncation-group
+	 * double-click-to-collapse check above has ruled itself out (not
+	 * applicable, or this wasn't a repeat click).
+	 */
+	private handleDotTrigger(evt: MouseEvent, dot: HTMLElement, path: string, groupKey: string | null): void {
+		const mode = this.store.getStatusMenuTrigger();
+
+		if (mode === "right") {
+			if (evt.button !== 2) {
+				// A left click on the dot in this mode opens nothing, but still
+				// must never fall through to open/expand the row underneath it.
+				if (evt.button === 0) {
+					evt.preventDefault();
+					evt.stopImmediatePropagation();
+				}
 				return;
 			}
+			evt.preventDefault();
+			evt.stopImmediatePropagation();
 			this.onDotClick(dot, path);
+			return;
+		}
+
+		if (evt.button !== 0) return; // every other mode is left-button only
+
+		evt.preventDefault();
+		evt.stopImmediatePropagation();
+
+		if (groupKey && (mode === "long" || mode === "double")) {
+			// A grouped dot's double-click is already claimed by the collapse
+			// gesture above, so it can't also serve as this mode's own
+			// open-trigger without colliding with that check — fall back to
+			// the same delayed-single-click-opens behaviour "Left click" mode
+			// uses instead.
+			this.scheduleGroupedOpen(dot, path);
+			return;
+		}
+
+		if (mode === "long") {
+			this.beginLongPress(dot, path);
+			return;
+		}
+		if (mode === "double") {
+			this.beginDoubleClickOpen(dot, path);
+			return;
+		}
+		if (groupKey) {
+			this.scheduleGroupedOpen(dot, path);
+			return;
+		}
+		this.onDotClick(dot, path); // mode === "left" (default), ungrouped
+	}
+
+	/** "Left click" mode on a truncation-group member — see handleDotTrigger(). */
+	private scheduleGroupedOpen(dot: HTMLElement, path: string): void {
+		this.cancelPendingDotAction(dot);
+		const handle = dot.win.setTimeout(() => {
+			this.pendingDotActions.delete(dot);
+			this.lastDotMouseDown.delete(dot);
+			this.onDotClick(dot, path);
+		}, DOUBLE_CLICK_MS);
+		this.pendingDotActions.set(dot, handle);
+	}
+
+	/** "Double click" mode on an ungrouped dot — see handleDotTrigger(). */
+	private beginDoubleClickOpen(dot: HTMLElement, path: string): void {
+		const now = Date.now();
+		const lastDown = this.lastDotMouseDown.get(dot);
+		this.lastDotMouseDown.set(dot, now);
+		this.cancelPendingDotAction(dot);
+		if (lastDown !== undefined && now - lastDown < DOUBLE_CLICK_MS) {
+			this.lastDotMouseDown.delete(dot);
+			this.onDotClick(dot, path);
+			return;
+		}
+		// Wait for a possible second click; if none arrives in time, do
+		// nothing — a single click shouldn't open the popup in this mode.
+		const handle = dot.win.setTimeout(() => {
+			this.pendingDotActions.delete(dot);
+			this.lastDotMouseDown.delete(dot);
+		}, DOUBLE_CLICK_MS);
+		this.pendingDotActions.set(dot, handle);
+	}
+
+	/** "Long click" mode — opens the popup once the dot has been held for LONG_PRESS_MS; a quick tap does nothing. */
+	private beginLongPress(dot: HTMLElement, path: string): void {
+		this.pendingLongPress.get(dot)?.();
+		const win = dot.win;
+		const handle = win.setTimeout(() => {
+			cleanup();
+			this.onDotClick(dot, path);
+		}, LONG_PRESS_MS);
+		const onRelease = () => cleanup();
+		const cleanup = () => {
+			win.clearTimeout(handle);
+			win.removeEventListener("mouseup", onRelease, true);
+			this.pendingLongPress.delete(dot);
 		};
-		win.addEventListener("mousedown", listener, true);
-		this.dotMouseDownListeners.set(win, listener);
+		win.addEventListener("mouseup", onRelease, true);
+		this.pendingLongPress.set(dot, cleanup);
+	}
+
+	private cancelPendingDotAction(dot: HTMLElement): void {
+		const pending = this.pendingDotActions.get(dot);
+		if (pending !== undefined) {
+			dot.win.clearTimeout(pending);
+			this.pendingDotActions.delete(dot);
+		}
 	}
 
 	private attachObserver(explorerRoot: HTMLElement): void {
