@@ -1,5 +1,5 @@
 import type { Plugin } from "obsidian";
-import { DEFAULT_COLOR_PALETTE, FolderConfig, PluginData, ResolvedDisplay, StatusDefinition, StatusSet, TruncationRule, createEmptyPluginData } from "./types";
+import { DEFAULT_COLOR_PALETTE, FolderConfig, PluginData, ResolvedDisplay, StatusDefinition, StatusMenuTrigger, StatusSet, TruncationRule, createEmptyPluginData } from "./types";
 import { ROOT_PATH, parentPath, rewritePathOnRename } from "./pathUtils";
 import { generateId } from "./colorUtils";
 
@@ -57,6 +57,7 @@ export class DataStore {
 				itemStatuses: loaded.itemStatuses ?? {},
 				colorPalette: loaded.colorPalette ?? [...DEFAULT_COLOR_PALETTE],
 				glowEnabled: loaded.glowEnabled ?? false,
+				statusMenuTrigger: loaded.statusMenuTrigger ?? "left",
 			};
 			// Backfill fields added in later versions so data saved by an older
 			// build of the plugin doesn't leave sets without a default status.
@@ -226,6 +227,17 @@ export class DataStore {
 
 	setGlowEnabled(enabled: boolean): void {
 		this.data.glowEnabled = enabled;
+		this.requestSave();
+	}
+
+	// ---------- Behaviour ----------
+
+	getStatusMenuTrigger(): StatusMenuTrigger {
+		return this.data.statusMenuTrigger ?? "left";
+	}
+
+	setStatusMenuTrigger(trigger: StatusMenuTrigger): void {
+		this.data.statusMenuTrigger = trigger;
 		this.requestSave();
 	}
 

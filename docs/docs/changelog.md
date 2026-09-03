@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.0
+
+- Added: a **Behaviour** section in Settings with an **Open change status
+  menu** option — choose whether clicking a status dot with **Left click**
+  (default, unchanged), **Right click**, **Long click** (press and hold), or
+  **Double click** opens the change-status popup.
+- Fixed: clicking a status dot in the file tree also opened the file or
+  expanded/collapsed the folder underneath it, in addition to opening the
+  change-status popup. Obsidian (and other plugins, e.g. Folder Notes) open
+  a file or expand a folder off a `click` event, which the browser
+  dispatches after mouseup independently of the `mousedown` handling this
+  plugin already intercepted — stopping propagation on `mousedown` alone
+  never stopped that later `click`. Clicking the dot now only ever opens the
+  change-status popup; clicking the file/folder's name is unaffected.
+
 ## 0.6.2
 
 - Renamed the plugin (again) to **File Folder Status Sets** — "Status Sets"
