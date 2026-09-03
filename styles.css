@@ -45,43 +45,17 @@
 	display: none;
 }
 
-/* Synthetic "N Label" summary row standing in for a collapsed truncation group. */
+/* Synthetic "N Label" summary row standing in for a collapsed truncation group.
+   Deliberately no dot/text styling of its own here — it's cloned from a real
+   row (see buildGroupRow() in explorerPatch.ts) and reuses .ffsi-dot plus the
+   real .nav-file-title-content class precisely so it renders pixel-identical
+   to a normal item, not just similar. */
 .ffsi-trunc-row {
 	cursor: pointer;
 }
 
 .ffsi-trunc-row:hover .ffsi-trunc-title {
 	background: var(--nav-item-background-hover, var(--background-modifier-hover));
-}
-
-.ffsi-trunc-title {
-	display: flex;
-	align-items: center;
-}
-
-.ffsi-trunc-dot {
-	display: inline-block;
-	flex-shrink: 0;
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	margin-right: 6px;
-	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
-}
-
-.ffsi-glow .ffsi-trunc-dot {
-	box-shadow:
-		0 0 0 1px rgba(0, 0, 0, 0.15),
-		0 0 3px 1px currentColor,
-		0 0 7px 2px currentColor;
-}
-
-/* Faded relative to a real item's title, so a summary row reads as a group rather than a note/folder.
-   Doubled selector (not !important) so this reliably beats the real .nav-file-title-content color
-   rule it's layered on top of — same font-size/line-height as real titles, just muted. */
-.ffsi-trunc-text.ffsi-trunc-text {
-	color: var(--text-muted);
-	opacity: 0.85;
 }
 
 /* Popup used for choosing a status / status set. */

@@ -1,6 +1,6 @@
 {
 	"name": "file-folder-status-icons",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"description": "Traffic-light style status icons for files and folders in the Obsidian file tree, with custom statuses, per-folder defaults, and persistent sort/group by status.",
 	"main": "main.js",
 	"scripts": {

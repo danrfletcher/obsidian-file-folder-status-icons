@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.1
+
+- Fixed: clicking a truncated status group's summary row (e.g. "3 Ideas") did
+  nothing — it was actually rendering with `display: none` the whole time,
+  a side effect of 0.5.0's alignment fix cloning the row *after* marking it
+  hidden. Clicking the dot or the text now reliably expands the group again,
+  routed through the same click-handling path already used to survive other
+  plugins (e.g. Folder Notes) intercepting clicks on folder titles.
+- Fixed: the summary row's text and dot were still visibly different from a
+  real item's — slightly muted text and a slightly larger dot. Both are now
+  built from the exact same classes and elements a real row uses, with no
+  styling of our own layered on top, so they render pixel-identical.
+
 ## 0.5.0
 
 - Fixed: a truncated status group's summary row (e.g. "3 Ideas") sat visibly
