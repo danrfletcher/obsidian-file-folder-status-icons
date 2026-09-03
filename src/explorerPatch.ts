@@ -23,8 +23,13 @@ const GROUP_MEMBER_ATTR = "data-ffsi-group";
  * row itself.
  */
 const GROUP_SUMMARY_ATTR = "data-ffsi-trunc-summary";
-/** How long a single click on a group member's dot waits before opening the status popup, in case a dblclick follows. */
-const GROUP_CLICK_DELAY_MS = 300;
+/**
+ * Window within which two `mousedown`s on the same dot count as a
+ * double-click, and how long a single one waits before acting (in case a
+ * second follows) — see attachDotInterceptor() for why this is driven off
+ * mousedown/manual timing rather than the native `click`/`dblclick` events.
+ */
+const DOUBLE_CLICK_MS = 400;
 
 /**
  * Decorates Obsidian's native file explorer with status dots, wires up the
@@ -39,13 +44,15 @@ export class ExplorerPatch {
 	private observer: MutationObserver | null = null;
 	private dirtyContainers = new Set<HTMLElement>();
 	private rafHandle: number | null = null;
-	// One delegated, capturing click listener per window rather than a
+	// One delegated, capturing mousedown listener per window rather than a
 	// listener per dot — see attachDotInterceptor() for why this has to be
-	// window-level (capture) rather than an ordinary listener on each dot.
-	private dotClickListeners = new Map<Window, (evt: MouseEvent) => void>();
-	private dotDblClickListeners = new Map<Window, (evt: MouseEvent) => void>();
+	// window-level (capture) rather than an ordinary listener on each dot,
+	// and why mousedown rather than click.
+	private dotMouseDownListeners = new Map<Window, (evt: MouseEvent) => void>();
 	/** Pending (delayed) single-click handlers for truncation-group members, keyed by dot element — see attachDotInterceptor(). */
-	private pendingDotClicks = new Map<HTMLElement, number>();
+	private pendingDotActions = new Map<HTMLElement, number>();
+	/** Timestamp of the last mousedown on each dot, for manual double-click detection — see attachDotInterceptor(). */
+	private lastDotMouseDown = new Map<HTMLElement, number>();
 	/** Truncation groups the user has expanded, keyed by `${folderPath} ${statusId}`. Not persisted — collapsed again on reload. */
 	private expandedGroups = new Set<string>();
 
@@ -66,18 +73,15 @@ export class ExplorerPatch {
 			window.cancelAnimationFrame(this.rafHandle);
 			this.rafHandle = null;
 		}
-		for (const [win, listener] of this.dotClickListeners) {
-			win.removeEventListener("click", listener, true);
+		for (const [win, listener] of this.dotMouseDownListeners) {
+			win.removeEventListener("mousedown", listener, true);
 		}
-		this.dotClickListeners.clear();
-		for (const [win, listener] of this.dotDblClickListeners) {
-			win.removeEventListener("dblclick", listener, true);
-		}
-		this.dotDblClickListeners.clear();
-		for (const [dot, handle] of this.pendingDotClicks) {
+		this.dotMouseDownListeners.clear();
+		for (const [dot, handle] of this.pendingDotActions) {
 			dot.win.clearTimeout(handle);
 		}
-		this.pendingDotClicks.clear();
+		this.pendingDotActions.clear();
+		this.lastDotMouseDown.clear();
 		this.expandedGroups.clear();
 		document.querySelectorAll(`.${DOT_CLASS}, .${GROUP_ROW_CLASS}`).forEach((el) => el.remove());
 		// Belt-and-suspenders: a popup or menu-anchor left open at unload time
@@ -201,38 +205,44 @@ export class ExplorerPatch {
 	}
 
 	/**
-	 * Delegated click handling for `.ffsi-dot` elements, registered once per
-	 * window as a *capturing* listener on `window` itself.
+	 * Delegated interaction handling for `.ffsi-dot` elements (and truncation
+	 * summary rows), registered once per window as a *capturing* listener on
+	 * `window` itself.
 	 *
-	 * This has to preempt other plugins, not just stop the click bubbling
-	 * back up. Plugins like "Folder Notes" register their own click handler
-	 * on `document` with `capture: true` so they can intercept a click on a
-	 * folder's title before Obsidian's default expand/collapse behaviour
-	 * runs, and immediately call `stopImmediatePropagation()` there to open
-	 * the folder note instead. A capturing listener on `document` fires
-	 * during the capture phase, which happens *before* the event ever
-	 * reaches our dot — so a plain bubble-phase `addEventListener('click', …)`
-	 * on the dot itself (the previous approach) never even ran for folders
-	 * that have a folder note.
+	 * Driven off `mousedown`, not `click`/`dblclick`. Those depend on the
+	 * browser synthesizing a higher-level event on top of the raw
+	 * mousedown/mouseup pair, and at least one real-world combination of
+	 * input method and Electron/Chromium build has been confirmed (via a
+	 * live debugging session — see the 0.5.2 changelog entry) to deliver
+	 * mousedown and mouseup perfectly while never synthesizing `click` at
+	 * all, silently breaking every click-driven interaction in this file.
+	 * mousedown itself was reliable in that same session, so double-click is
+	 * now detected manually (two mousedowns on the same dot within
+	 * DOUBLE_CLICK_MS) instead of trusting the native `dblclick` event, which
+	 * has the identical dependency on `click` firing twice.
 	 *
+	 * Capturing on `window` also has to preempt other plugins, not just stop
+	 * the event bubbling back up. Plugins like "Folder Notes" register their
+	 * own handler on `document` with `capture: true` so they can intercept a
+	 * click on a folder's title before Obsidian's default expand/collapse
+	 * behaviour runs, and immediately call `stopImmediatePropagation()`
+	 * there to open the folder note instead. A capturing listener on
+	 * `document` fires during the capture phase, which happens *before* the
+	 * event ever reaches our dot — so a plain bubble-phase listener on the
+	 * dot itself would never even run for folders that have a folder note.
 	 * The DOM's capture order is window → document → … → target, so a
 	 * capturing listener on `window` always runs before one on `document`,
-	 * regardless of plugin load order. Registering here — and stopping the
-	 * event ourselves — reliably wins that race instead of depending on it.
+	 * regardless of plugin load order.
 	 */
 	private attachDotInterceptor(explorerRoot: HTMLElement): void {
 		const win = explorerRoot.win;
-		if (this.dotClickListeners.has(win)) return;
+		if (this.dotMouseDownListeners.has(win)) return;
 		const listener = (evt: MouseEvent) => {
+			if (evt.button !== 0) return; // left button only — don't hijack right-click's context menu
 			const target = evt.target;
 			if (!(target instanceof HTMLElement)) return;
-			// A collapsed truncation group's summary row — click its dot *or*
-			// its text (anywhere within the title) to expand. Checked first,
-			// and via the same window-level capturing listener as the dot
-			// handling below, for the same reason: a plain listener on the row
-			// itself would lose the race against other plugins' own capturing
-			// listeners on folder titles (e.g. Folder Notes) and silently never
-			// fire for a group whose first member happens to be a folder.
+			// A collapsed truncation group's summary row — mousedown on its dot
+			// *or* its text (anywhere within the title) to expand.
 			const summaryEl = target.closest<HTMLElement>(`[${GROUP_SUMMARY_ATTR}]`);
 			if (summaryEl) {
 				evt.preventDefault();
@@ -248,49 +258,44 @@ export class ExplorerPatch {
 			if (!dot) return;
 			evt.preventDefault();
 			evt.stopImmediatePropagation();
-			// Read data-path fresh at click time rather than caching it — Obsidian
-			// can finish setting data-path slightly after the row is first mounted.
+			// Read data-path fresh at mousedown time rather than caching it —
+			// Obsidian can finish setting data-path slightly after the row is
+			// first mounted.
 			const titleEl = dot.parentElement;
 			const raw = titleEl?.getAttribute("data-path") ?? "";
 			const path = raw === "/" ? ROOT_PATH : raw;
 			const groupKey = dot.getAttribute(GROUP_MEMBER_ATTR);
 			if (groupKey) {
-				// This dot belongs to an expanded truncation group — hold off opening
-				// the status popup briefly in case a dblclick follows (which collapses
-				// the group instead; see the dblclick listener below).
-				const existing = this.pendingDotClicks.get(dot);
-				if (existing !== undefined) win.clearTimeout(existing);
+				// This dot belongs to an expanded truncation group — a second
+				// mousedown within DOUBLE_CLICK_MS collapses the group; otherwise
+				// hold off opening the status popup for that same window, in case
+				// one follows.
+				const now = Date.now();
+				const lastDown = this.lastDotMouseDown.get(dot);
+				this.lastDotMouseDown.set(dot, now);
+				const pending = this.pendingDotActions.get(dot);
+				if (pending !== undefined) {
+					win.clearTimeout(pending);
+					this.pendingDotActions.delete(dot);
+				}
+				if (lastDown !== undefined && now - lastDown < DOUBLE_CLICK_MS) {
+					this.lastDotMouseDown.delete(dot);
+					this.expandedGroups.delete(groupKey);
+					this.refreshAll();
+					return;
+				}
 				const handle = win.setTimeout(() => {
-					this.pendingDotClicks.delete(dot);
+					this.pendingDotActions.delete(dot);
+					this.lastDotMouseDown.delete(dot);
 					this.onDotClick(dot, path);
-				}, GROUP_CLICK_DELAY_MS);
-				this.pendingDotClicks.set(dot, handle);
+				}, DOUBLE_CLICK_MS);
+				this.pendingDotActions.set(dot, handle);
 				return;
 			}
 			this.onDotClick(dot, path);
 		};
-		win.addEventListener("click", listener, true);
-		this.dotClickListeners.set(win, listener);
-
-		const dblListener = (evt: MouseEvent) => {
-			const target = evt.target;
-			if (!(target instanceof HTMLElement)) return;
-			const dot = target.closest<HTMLElement>(`.${DOT_CLASS}`);
-			if (!dot) return;
-			const groupKey = dot.getAttribute(GROUP_MEMBER_ATTR);
-			if (!groupKey) return;
-			evt.preventDefault();
-			evt.stopImmediatePropagation();
-			const pending = this.pendingDotClicks.get(dot);
-			if (pending !== undefined) {
-				win.clearTimeout(pending);
-				this.pendingDotClicks.delete(dot);
-			}
-			this.expandedGroups.delete(groupKey);
-			this.refreshAll();
-		};
-		win.addEventListener("dblclick", dblListener, true);
-		this.dotDblClickListeners.set(win, dblListener);
+		win.addEventListener("mousedown", listener, true);
+		this.dotMouseDownListeners.set(win, listener);
 	}
 
 	private attachObserver(explorerRoot: HTMLElement): void {
@@ -511,10 +516,10 @@ export class ExplorerPatch {
 			const contentEl = titleEl.querySelector(".nav-file-title-content, .nav-folder-title-content");
 			if (contentEl) titleEl.insertBefore(dot, contentEl);
 			else titleEl.prepend(dot);
-			// Click handling is delegated to a single window-level capturing
-			// listener — see attachDotInterceptor() — rather than attached here,
-			// so it can preempt other plugins' own document-level capture
-			// listeners (e.g. Folder Notes intercepting folder-title clicks).
+			// Interaction handling is delegated to a single window-level capturing
+			// mousedown listener — see attachDotInterceptor() — rather than
+			// attached here, so it can preempt other plugins' own document-level
+			// capture listeners (e.g. Folder Notes intercepting folder-title clicks).
 		}
 		// `color` (not just `backgroundColor`) is set so the glow effect — which
 		// paints via `currentColor` in CSS — always matches this dot's status color.
