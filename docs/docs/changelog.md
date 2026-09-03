@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.1
+## 0.6.2
 
 - Renamed the plugin (again) to **File Folder Status Sets** — "Status Sets"
   turned out to exactly match the "Status sets" heading of the settings
@@ -12,6 +12,9 @@
   `clearTimeout`) used the bare global instead of `window.setTimeout`/
   `window.clearTimeout`, which the community directory's review flags for
   popout-window compatibility.
+
+## 0.6.1
+
 - Added a small, unstable public API (`app.plugins.plugins["file-folder-status-icons"].api`)
   so other plugins can read status sets, check the Glow setting, and reuse
   the status-change popup, without depending on internal classes. Built to
