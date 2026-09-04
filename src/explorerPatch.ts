@@ -55,7 +55,13 @@ interface WithSubmenu {
  * are far more stable across Obsidian releases than private view methods.
  */
 export class ExplorerPatch {
-	private observer: MutationObserver | null = null;
+	/**
+	 * One observer per file-explorer root (keyed by that view's containerEl),
+	 * not a single shared one — a popped-out file explorer window is a
+	 * second, independent root, and the previous single-observer field meant
+	 * enable()'ing a second view silently stopped watching the first.
+	 */
+	private observers = new Map<HTMLElement, MutationObserver>();
 	private dirtyContainers = new Set<HTMLElement>();
 	private rafHandle: number | null = null;
 	// One delegated, capturing listener per window per event type rather than
@@ -82,8 +88,8 @@ export class ExplorerPatch {
 	}
 
 	disable(): void {
-		this.observer?.disconnect();
-		this.observer = null;
+		for (const observer of this.observers.values()) observer.disconnect();
+		this.observers.clear();
 		if (this.rafHandle !== null) {
 			window.cancelAnimationFrame(this.rafHandle);
 			this.rafHandle = null;
@@ -490,15 +496,16 @@ export class ExplorerPatch {
 	}
 
 	private attachObserver(explorerRoot: HTMLElement): void {
-		this.observer?.disconnect();
-		this.observer = new MutationObserver((records) => {
+		if (this.observers.has(explorerRoot)) return;
+		const observer = new MutationObserver((records) => {
 			for (const record of records) {
 				const target = record.target as HTMLElement;
 				const container = target.closest<HTMLElement>(".nav-folder-children, .nav-files-container");
 				if (container) this.queueContainer(container);
 			}
 		});
-		this.observer.observe(explorerRoot, { childList: true, subtree: true });
+		observer.observe(explorerRoot, { childList: true, subtree: true });
+		this.observers.set(explorerRoot, observer);
 	}
 
 	private queueContainer(container: HTMLElement): void {
@@ -689,8 +696,37 @@ export class ExplorerPatch {
 		const currentOrder = rows.map((r) => r.path).join(" ");
 		const desiredOrder = desired.map((r) => r.path).join(" ");
 		if (currentOrder === desiredOrder) return; // already sorted — avoids MutationObserver feedback loops
+
+		// Move only the rows that are actually out of place, rather than
+		// detaching/reattaching every row via appendChild. This container is
+		// the live, possibly-mid-scroll, possibly-mid-click file explorer —
+		// re-inserting a row that's already sitting in the right spot still
+		// costs it its DOM identity for that instant (loses the browser's
+		// scroll anchor, can interrupt an in-flight click or Obsidian's own
+		// just-finished render), which is what was desyncing the explorer's
+		// scroll position and occasionally routing clicks to the wrong row.
+		// Rows already in the right relative order are left completely
+		// untouched; only the ones out of place get moved, and only past the
+		// minimum needed to reach the desired order.
+		const tracked = new Set(desired.map((r) => r.el));
+		const nextTracked = (el: HTMLElement): HTMLElement | null => {
+			let sibling = el.nextElementSibling;
+			while (sibling && !tracked.has(sibling as HTMLElement)) sibling = sibling.nextElementSibling;
+			return sibling as HTMLElement | null;
+		};
+		const firstTracked = (): HTMLElement | null => {
+			let child = container.firstElementChild;
+			while (child && !tracked.has(child as HTMLElement)) child = child.nextElementSibling;
+			return child as HTMLElement | null;
+		};
+
+		let prev: HTMLElement | null = null;
 		for (const row of desired) {
-			container.appendChild(row.el);
+			const actualNext: HTMLElement | null = prev ? nextTracked(prev) : firstTracked();
+			if (actualNext !== row.el) {
+				container.insertBefore(row.el, prev ? prev.nextSibling : container.firstChild);
+			}
+			prev = row.el;
 		}
 	}
 
