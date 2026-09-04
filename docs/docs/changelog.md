@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.2
+
+- Fixed the root cause of the file-explorer scroll-jump bug 0.7.1 only
+  partly addressed: sorting a "group by status" folder's rows, and adding
+  a status dot to a newly-rendered row, both still moved/inserted DOM
+  nodes — and Obsidian's internally-virtualized file-explorer reacts to
+  *any* such change in its rendered tree by reconciling the whole thing,
+  not just the toggled folder, which is what produced the jump, the
+  occasional expanded-chevron-with-no-children desync, and misrouted
+  clicks. Status sort now applies purely via CSS `order`, never by moving
+  a row's DOM node; the truncated-status summary row is reused instead of
+  rebuilt on every pass; and this plugin's own re-decoration now runs in
+  the same turn as Obsidian's own render instead of a frame later.
+
 ## 0.7.1
 
 - Fixed: the file-explorer scroll position could jump unexpectedly when
