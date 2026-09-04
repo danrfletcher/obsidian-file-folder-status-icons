@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.1
+
+- Fixed: the file-explorer scroll position could jump unexpectedly when
+  right-clicking or expanding a folder governed by "sort/group by status" —
+  and, less often, a folder would show an expanded chevron with no
+  rendered children, or a click would land on the wrong row. Root cause:
+  the sort-order reorder re-inserted every row in a status-sorted folder
+  via `appendChild`, even rows that were already correctly placed, which
+  desynced the browser's scroll anchoring from Obsidian's own just-finished
+  render. Reordering now only moves rows that are actually out of place.
+- Fixed: enabling statuses in a second file-explorer view (e.g. a popped-out
+  window) silently stopped watching the first view for changes.
+
 ## 0.7.0
 
 - Added: a **Behaviour** section in Settings with an **Open change status
