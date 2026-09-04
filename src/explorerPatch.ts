@@ -23,6 +23,8 @@ const GROUP_MEMBER_ATTR = "data-ffsi-group";
  * row itself.
  */
 const GROUP_SUMMARY_ATTR = "data-ffsi-trunc-summary";
+/** Fingerprint of a summary row's rendered content — see buildGroupRow() and its reuse check in processContainer(). */
+const GROUP_ROW_SIG_ATTR = "data-ffsi-group-sig";
 /**
  * Window within which two `mousedown`s on the same dot count as a
  * double-click, and how long a single one waits before acting (in case a
@@ -63,7 +65,7 @@ export class ExplorerPatch {
 	 */
 	private observers = new Map<HTMLElement, MutationObserver>();
 	private dirtyContainers = new Set<HTMLElement>();
-	private rafHandle: number | null = null;
+	private flushScheduled = false;
 	// One delegated, capturing listener per window per event type rather than
 	// a listener per dot — see attachDotInterceptor() for why this has to be
 	// window-level (capture) rather than an ordinary listener on each dot.
@@ -90,10 +92,8 @@ export class ExplorerPatch {
 	disable(): void {
 		for (const observer of this.observers.values()) observer.disconnect();
 		this.observers.clear();
-		if (this.rafHandle !== null) {
-			window.cancelAnimationFrame(this.rafHandle);
-			this.rafHandle = null;
-		}
+		this.dirtyContainers.clear();
+		this.flushScheduled = false; // a microtask flush already in flight will see observers.size === 0 and no-op
 		for (const [win, listeners] of this.dotWindowListeners) {
 			for (const { type, fn } of listeners) win.removeEventListener(type, fn, true);
 		}
@@ -508,11 +508,29 @@ export class ExplorerPatch {
 		this.observers.set(explorerRoot, observer);
 	}
 
+	/**
+	 * Coalesces same-turn mutations into one processContainer() pass per
+	 * container, same as before — the difference is *when* that pass runs.
+	 * A MutationObserver callback fires as a microtask, i.e. before the next
+	 * paint; queueing our own flush as a microtask too means it runs in that
+	 * same turn, right alongside whatever else is reacting to the same DOM
+	 * change. The previous rAF-deferred version pushed it out to the next
+	 * animation frame instead — a full frame later than Obsidian's own
+	 * post-toggle work. That gap meant our dot insertions and any reorder
+	 * landed as a *second*, separate wave of childList mutations arriving
+	 * just after Obsidian's file-explorer had already reconciled and
+	 * settled once — which was enough to trigger a second, redundant
+	 * reconciliation of its own. Folding our reaction into the same turn
+	 * lets Obsidian see one complete, already-decorated DOM state instead
+	 * of two.
+	 */
 	private queueContainer(container: HTMLElement): void {
 		this.dirtyContainers.add(container);
-		if (this.rafHandle !== null) return;
-		this.rafHandle = window.requestAnimationFrame(() => {
-			this.rafHandle = null;
+		if (this.flushScheduled) return;
+		this.flushScheduled = true;
+		queueMicrotask(() => {
+			this.flushScheduled = false;
+			if (this.observers.size === 0) return; // disable() ran before this flush — nothing left to process
 			const containers = Array.from(this.dirtyContainers);
 			this.dirtyContainers.clear();
 			for (const c of containers) this.processContainer(c);
@@ -532,8 +550,20 @@ export class ExplorerPatch {
 		// its own refreshAll() once the rename completes, so nothing is missed.
 		if (container.querySelector(".is-being-renamed")) return;
 
-		// Synthetic summary rows are rebuilt fresh every pass rather than diffed/reused.
-		container.querySelectorAll(`:scope > .${GROUP_ROW_CLASS}`).forEach((el) => el.remove());
+		// Existing summary rows, keyed by the group they represent — reused
+		// in place below rather than unconditionally destroyed and rebuilt
+		// every pass (a stale one left in this map after the loop means its
+		// group is no longer active, and gets removed then). A remove +
+		// rebuild is a childList mutation pair even when nothing about the
+		// group actually changed, which is exactly the kind of no-op DOM
+		// churn applySortOrder() moved away from for the same reason — see
+		// its docblock.
+		const existingGroupRows = new Map<string, HTMLElement>();
+		container.querySelectorAll<HTMLElement>(`:scope > .${GROUP_ROW_CLASS}`).forEach((el) => {
+			const key = el.getAttribute(GROUP_SUMMARY_ATTR);
+			if (key) existingGroupRows.set(key, el);
+			else el.remove(); // malformed/orphaned — no group key to reuse against
+		});
 
 		const cfg = this.store.resolveGoverningConfig(folderPath);
 
@@ -595,8 +625,19 @@ export class ExplorerPatch {
 					const status = set?.statuses.find((s) => s.id === statusId);
 					const rule = cfg?.truncatedStatuses?.[statusId as string];
 					if (status && rule) {
-						const groupEl = this.buildGroupRow(info.el, status, rule, countByStatus.get(statusId as string) ?? 0, groupKey);
-						container.insertBefore(groupEl, info.el);
+						const count = countByStatus.get(statusId as string) ?? 0;
+						const existing = existingGroupRows.get(groupKey);
+						existingGroupRows.delete(groupKey); // handled either way below — nothing left over to remove for this key
+						const sig = `${status.id} ${count} ${rule.label}`;
+						// Nothing about this group's rendered content changed since
+						// last pass — reuse the existing row untouched rather than
+						// destroy and rebuild it (see buildGroupRow()'s docblock).
+						let groupEl = existing;
+						if (!groupEl || groupEl.getAttribute(GROUP_ROW_SIG_ATTR) !== sig) {
+							existing?.remove();
+							groupEl = this.buildGroupRow(info.el, status, rule, count, groupKey);
+							container.appendChild(groupEl); // position is irrelevant — applySortOrder's CSS `order` places it
+						}
 						ranked.push({ el: groupEl, path: groupKey, rank: info.rank, name: "" });
 					}
 				}
@@ -608,8 +649,15 @@ export class ExplorerPatch {
 			ranked.push({ el: info.el, path: info.path, rank: info.rank, name: info.name });
 		}
 
+		// Anything left in existingGroupRows belongs to a group that's no
+		// longer active this pass (expanded, membership dropped below 2, its
+		// status un-enabled for truncation, …) — safe to drop.
+		for (const stale of existingGroupRows.values()) stale.remove();
+
 		if (cfg && cfg.sortMode === "status") {
 			this.applySortOrder(container, ranked);
+		} else {
+			this.clearSortOrder(container, ranked);
 		}
 	}
 
@@ -654,6 +702,14 @@ export class ExplorerPatch {
 		for (const cls of ExplorerPatch.CLONE_STATE_CLASSES) row.removeClass(cls);
 		row.addClass(GROUP_ROW_CLASS);
 		row.removeAttribute("draggable");
+		// Mirrors the title element's own GROUP_SUMMARY_ATTR (set below) so
+		// processContainer() can look up and reuse this row by group key
+		// without having to reach into its title child first.
+		row.setAttribute(GROUP_SUMMARY_ATTR, groupKey);
+		// A cheap fingerprint of everything that'd change this row's
+		// rendered content — lets processContainer() tell "still current"
+		// apart from "stale" without re-deriving status/rule/count itself.
+		row.setAttribute(GROUP_ROW_SIG_ATTR, `${status.id} ${count} ${rule.label}`);
 		// A cloned folder row would otherwise drag along its entire rendered
 		// subtree (if it happened to be expanded) as an inert, orphaned copy.
 		row.querySelectorAll(".nav-folder-children").forEach((el) => el.remove());
@@ -685,48 +741,57 @@ export class ExplorerPatch {
 		return row;
 	}
 
+	/**
+	 * Class toggled onto a "group by status" folder's row container so its
+	 * children lay out via flexbox — needed for the `order` property below
+	 * to do anything (it's a no-op on normal block-flow children). Declared
+	 * in styles.css as `display: flex; flex-direction: column`, which is
+	 * layout-equivalent to the block flow it replaces (same single-column
+	 * stack), so this changes nothing visually by itself.
+	 */
+	private static readonly SORTED_CONTAINER_CLASS = "ffsi-sorted-container";
+
+	/**
+	 * Applies status-based sort order purely via CSS `order`, never by
+	 * physically moving a row's DOM node — a deliberate departure from the
+	 * insertBefore-based approach 0.7.1 shipped (which only moved rows
+	 * already out of place). That minimal-diff version was still real
+	 * enough DOM churn — an insertBefore call is a childList mutation, and
+	 * Obsidian's file-explorer is internally virtualized — that it was
+	 * still enough to occasionally trigger Obsidian's own internal
+	 * reconciliation of the *entire* rendered tree (moving dozens of
+	 * unrelated rows and desyncing the scroll position), independent of and
+	 * in addition to anything this plugin did. See the 0.7.2 changelog
+	 * entry for how this was diagnosed. Setting `style.order` is a style
+	 * mutation, not a childList one: it never touches sibling relationships
+	 * in the DOM at all, so there is nothing here for Obsidian's own
+	 * renderer to react to — this container's real DOM order is left
+	 * exactly as Obsidian last rendered it, permanently.
+	 */
 	private applySortOrder(
 		container: HTMLElement,
 		rows: { el: HTMLElement; path: string; rank: number; name: string }[],
 	): void {
+		container.addClass(ExplorerPatch.SORTED_CONTAINER_CLASS);
 		const desired = [...rows].sort((a, b) => {
 			if (a.rank !== b.rank) return a.rank - b.rank;
 			return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
 		});
-		const currentOrder = rows.map((r) => r.path).join(" ");
-		const desiredOrder = desired.map((r) => r.path).join(" ");
-		if (currentOrder === desiredOrder) return; // already sorted — avoids MutationObserver feedback loops
+		desired.forEach((row, index) => {
+			// Only touch style.order when it's actually changing — an
+			// unconditional write would still cost every row a style
+			// recalc on every pass, for no visual difference.
+			const value = String(index);
+			if (row.el.style.order !== value) row.el.style.order = value;
+		});
+	}
 
-		// Move only the rows that are actually out of place, rather than
-		// detaching/reattaching every row via appendChild. This container is
-		// the live, possibly-mid-scroll, possibly-mid-click file explorer —
-		// re-inserting a row that's already sitting in the right spot still
-		// costs it its DOM identity for that instant (loses the browser's
-		// scroll anchor, can interrupt an in-flight click or Obsidian's own
-		// just-finished render), which is what was desyncing the explorer's
-		// scroll position and occasionally routing clicks to the wrong row.
-		// Rows already in the right relative order are left completely
-		// untouched; only the ones out of place get moved, and only past the
-		// minimum needed to reach the desired order.
-		const tracked = new Set(desired.map((r) => r.el));
-		const nextTracked = (el: HTMLElement): HTMLElement | null => {
-			let sibling = el.nextElementSibling;
-			while (sibling && !tracked.has(sibling as HTMLElement)) sibling = sibling.nextElementSibling;
-			return sibling as HTMLElement | null;
-		};
-		const firstTracked = (): HTMLElement | null => {
-			let child = container.firstElementChild;
-			while (child && !tracked.has(child as HTMLElement)) child = child.nextElementSibling;
-			return child as HTMLElement | null;
-		};
-
-		let prev: HTMLElement | null = null;
-		for (const row of desired) {
-			const actualNext: HTMLElement | null = prev ? nextTracked(prev) : firstTracked();
-			if (actualNext !== row.el) {
-				container.insertBefore(row.el, prev ? prev.nextSibling : container.firstChild);
-			}
-			prev = row.el;
+	/** Undoes applySortOrder() — restores plain source-order layout for a folder that isn't (or no longer is) sorting by status. */
+	private clearSortOrder(container: HTMLElement, rows: { el: HTMLElement }[]): void {
+		if (!container.hasClass(ExplorerPatch.SORTED_CONTAINER_CLASS)) return; // never sorted, nothing to undo
+		container.removeClass(ExplorerPatch.SORTED_CONTAINER_CLASS);
+		for (const row of rows) {
+			if (row.el.style.order) row.el.style.removeProperty("order");
 		}
 	}
 

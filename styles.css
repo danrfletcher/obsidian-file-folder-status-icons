@@ -45,6 +45,16 @@
 	display: none;
 }
 
+/* A "group by status" folder's row container. Applies status sort order via
+   each row's `order` style (see applySortOrder() in explorerPatch.ts) rather
+   than by moving rows in the DOM — flex-direction: column keeps the same
+   single-column stacked layout the plain block flow it replaces already had,
+   so this changes nothing visually by itself, only how sort order is applied. */
+.ffsi-sorted-container {
+	display: flex;
+	flex-direction: column;
+}
+
 /* Synthetic "N Label" summary row standing in for a collapsed truncation group.
    Deliberately no dot/text styling of its own here — it's cloned from a real
    row (see buildGroupRow() in explorerPatch.ts) and reuses .ffsi-dot plus the
