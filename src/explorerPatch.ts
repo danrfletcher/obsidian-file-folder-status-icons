@@ -568,7 +568,8 @@ export class ExplorerPatch {
 		const cfg = this.store.resolveGoverningConfig(folderPath);
 
 		const rows = Array.from(container.children).filter(
-			(el): el is HTMLElement => el.instanceOf(HTMLElement) && (el.hasClass("nav-file") || el.hasClass("nav-folder")),
+			(el): el is HTMLElement =>
+				el.instanceOf(HTMLElement) && (el.hasClass("nav-file") || el.hasClass("nav-folder")) && !el.hasClass(GROUP_ROW_CLASS),
 		);
 
 		interface RowInfo {
